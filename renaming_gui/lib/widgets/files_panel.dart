@@ -25,6 +25,9 @@ class FilesPanel extends StatelessWidget {
             builder: (context, appState, child) {
               return Row(
                 children: [
+                  const Icon(Icons.file_copy,
+                      color: AppTheme.textColor, size: 16),
+                  const SizedBox(width: 8),
                   Text(
                     '文件列表与预览',
                     style: Theme.of(context).textTheme.titleMedium,
@@ -48,6 +51,20 @@ class FilesPanel extends StatelessWidget {
                     label: const Text('添加文件'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      textStyle: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: appState.selectedCount > 0
+                        ? () => _removeSelectedFiles(context, appState)
+                        : null,
+                    icon: const Text('🗑️'),
+                    label: const Text('删除文件'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.errorColor,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
                       textStyle: const TextStyle(fontSize: 12),
@@ -209,10 +226,6 @@ class FilesPanel extends StatelessWidget {
     Color? rowColor;
     if (file.isSelected) {
       rowColor = const Color(0xFF094771);
-    } else if (file.status == FileStatus.changed) {
-      rowColor = const Color(0xFF1A3D1A);
-    } else if (file.status == FileStatus.error) {
-      rowColor = const Color(0xFF3D1A1A);
     }
 
     return TableRow(
@@ -267,7 +280,7 @@ class FilesPanel extends StatelessWidget {
           child: Text(
             file.displaySize,
             style: const TextStyle(
-              color: AppTheme.textSecondaryColor,
+              color: AppTheme.textMutedColor,
               fontSize: 12,
             ),
             textAlign: TextAlign.right,
@@ -358,8 +371,8 @@ class FilesPanel extends StatelessWidget {
       await appState.executeRename();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(appState.isDryRun ? '预览完成' : '重命名完成'),
+          const SnackBar(
+            content: Text('重命名完成'),
             backgroundColor: AppTheme.successColor,
           ),
         );
@@ -373,6 +386,40 @@ class FilesPanel extends StatelessWidget {
           ),
         );
       }
+    }
+  }
+
+  void _removeSelectedFiles(BuildContext context, AppState appState) {
+    final selectedCount = appState.selectedCount;
+    if (selectedCount > 0) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('确认删除'),
+            content: Text('确定要删除选中的 $selectedCount 个文件吗？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  appState.removeSelectedFiles();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('已删除 $selectedCount 个文件'),
+                      backgroundColor: AppTheme.successColor,
+                    ),
+                  );
+                },
+                child: const Text('删除'),
+              ),
+            ],
+          );
+        },
+      );
     }
   }
 }

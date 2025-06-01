@@ -4,8 +4,13 @@ import '../utils/constants.dart';
 
 class AddRuleDialog extends StatefulWidget {
   final Function(Rule) onRuleAdded;
+  final Rule? existingRule; // 添加可选的现有规则参数
 
-  const AddRuleDialog({super.key, required this.onRuleAdded});
+  const AddRuleDialog({
+    super.key,
+    required this.onRuleAdded,
+    this.existingRule, // 支持编辑现有规则
+  });
 
   @override
   State<AddRuleDialog> createState() => _AddRuleDialogState();
@@ -17,23 +22,48 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
   final _param2Controller = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    // 如果是编辑模式，初始化现有规则的数据
+    if (widget.existingRule != null) {
+      _initializeFromExistingRule(widget.existingRule!);
+    }
+  }
+
+  void _initializeFromExistingRule(Rule rule) {
+    // 根据规则类型设置对应的参数
+    // 这里需要根据具体的规则类型来解析参数
+    // 示例实现，需要根据实际的Rule结构调整
+    _selectedRuleType = _getRuleTypeFromRule(rule);
+    // 设置参数控制器的值
+    // _param1Controller.text = rule.param1 ?? '';
+    // _param2Controller.text = rule.param2 ?? '';
+  }
+
+  String _getRuleTypeFromRule(Rule rule) {
+    // 根据规则名称或类型返回对应的规则类型键
+    // 这里需要根据实际的Rule结构实现
+    return 'addPrefix'; // 默认值
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text(AppConstants.addRuleTitle),
+      title: Text(
+          widget.existingRule != null ? '编辑规则' : AppConstants.addRuleTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<String>(
             value: _selectedRuleType,
-            items:
-                AppConstants.ruleTypes.entries
-                    .map(
-                      (entry) => DropdownMenuItem(
-                        value: entry.key,
-                        child: Text(entry.value),
-                      ),
-                    )
-                    .toList(),
+            items: AppConstants.ruleTypes.entries
+                .map(
+                  (entry) => DropdownMenuItem(
+                    value: entry.key,
+                    child: Text(entry.value),
+                  ),
+                )
+                .toList(),
             onChanged: (value) {
               setState(() {
                 _selectedRuleType = value!;

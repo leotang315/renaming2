@@ -20,9 +20,9 @@ class Renamer {
     this.dryRun = false,
     List<RenameResult>? mappings,
     this.processExtension = false,
-  })  : rules = rules ?? [],
-        fileList = fileList ?? [],
-        mappings = mappings ?? [];
+  }) : rules = rules ?? [],
+       fileList = fileList ?? [],
+       mappings = mappings ?? [];
 
   void setProcessExtension(bool process) {
     processExtension = process;
@@ -110,9 +110,10 @@ class Renamer {
   Future<void> loadRule(String data) async {
     try {
       final jsonList = json.decode(data) as List;
-      rules = jsonList
-          .map((e) => Rule.fromJson(e as Map<String, dynamic>))
-          .toList();
+      rules =
+          jsonList
+              .map((e) => Rule.fromJson(e as Map<String, dynamic>))
+              .toList();
     } catch (e) {
       throw Exception('加载规则失败: $e');
     }

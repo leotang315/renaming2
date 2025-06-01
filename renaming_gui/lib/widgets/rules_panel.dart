@@ -24,6 +24,8 @@ class RulesPanel extends StatelessWidget {
           ),
           child: Row(
             children: [
+              const Icon(Icons.settings, color: AppTheme.textColor, size: 16),
+              const SizedBox(width: 8),
               Text(
                 '重命名规则',
                 style: Theme.of(context).textTheme.titleMedium,
@@ -41,7 +43,46 @@ class RulesPanel extends StatelessWidget {
                   children: [
                     // 规则组
                     if (appState.rules.isNotEmpty)
-                      ..._buildRuleGroups(context, appState),
+                      ..._buildRuleList(context, appState),
+
+                    // 添加处理扩展名的checkbox
+                    Container(
+                      height: 32,
+                      margin: const EdgeInsets.only(bottom: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.headerColor,
+                        borderRadius: BorderRadius.circular(3),
+                        border: const Border(
+                          left: BorderSide(color: Color(0xFF007ACC), width: 3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Spacer(),
+                          Checkbox(
+                            value: appState.processExtension,
+                            onChanged: (value) {
+                              appState.setProcessExtension(value ?? false);
+                            },
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          const SizedBox(width: 8),
+                          const Tooltip(
+                            message: '勾选后，重命名规则将应用到文件扩展名部分',
+                            child: Text(
+                              '处理文件扩展名',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                     // 添加规则按钮
                     SizedBox(
@@ -63,48 +104,6 @@ class RulesPanel extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  List<Widget> _buildRuleGroups(BuildContext context, AppState appState) {
-    final groups = <String, List<Rule>>{};
-
-    for (final rule in appState.rules) {
-      final groupName = _getRuleGroupName(rule);
-      groups.putIfAbsent(groupName, () => []).add(rule);
-    }
-
-    return groups.entries.map((entry) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 组标题
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF094771),
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: Text(
-                entry.key,
-                style: const TextStyle(
-                  color: AppTheme.textSecondaryColor,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            // 规则项
-            ...entry.value.asMap().entries.map((ruleEntry) {
-              final globalIndex = appState.rules.indexOf(ruleEntry.value);
-              return _buildRuleItem(
-                  context, appState, ruleEntry.value, globalIndex);
-            }),
-          ],
-        ),
-      );
-    }).toList();
   }
 
   Widget _buildRuleItem(
@@ -155,23 +154,11 @@ class RulesPanel extends StatelessWidget {
     );
   }
 
-  String _getRuleGroupName(Rule rule) {
-    if (rule.name.contains('前缀') || rule.name.contains('后缀')) {
-      return '添加文本';
-    } else if (rule.name.contains('替换')) {
-      return '替换文本';
-    } else if (rule.name.contains('删除') || rule.name.contains('移除')) {
-      return '移除文本';
-    }
-    return '其他规则';
-  }
-
   void _showAddRuleDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AddRuleDialog(onRuleAdded: (rule) {
-        // 关闭对话框
-        Navigator.of(context).pop();
+        Provider.of<AppState>(context, listen: false).addRule(rule);
       }),
     );
   }
@@ -181,10 +168,21 @@ class RulesPanel extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AddRuleDialog(
-        onRuleAdded: (rule) {
-          Navigator.of(context).pop();
+        existingRule: rule, // 传入现有规则
+        onRuleAdded: (updatedRule) {
+          // 更新规则
+          Provider.of<AppState>(context, listen: false)
+              .updateRule(index, updatedRule);
         },
       ),
     );
+  }
+
+  List<Widget> _buildRuleList(BuildContext context, AppState appState) {
+    return appState.rules.asMap().entries.map((entry) {
+      final index = entry.key;
+      final rule = entry.value;
+      return _buildRuleItem(context, appState, rule, index);
+    }).toList();
   }
 }

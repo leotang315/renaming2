@@ -75,15 +75,17 @@ class AppState extends ChangeNotifier {
   final Renamer _renamer = Renamer();
   final List<FileItem> _files = [];
   final List<Rule> _rules = [];
-  bool _isDryRun = true;
+
   bool _selectAll = false;
+  bool _processExtension = false; // 添加这个属性
 
   // Getters
   List<FileItem> get files => List.unmodifiable(_files);
   List<Rule> get rules => List.unmodifiable(_rules);
-  bool get isDryRun => _isDryRun;
+
   bool get canExecute => _files.any((f) => f.isSelected) && _rules.isNotEmpty;
   bool get selectAll => _selectAll;
+  bool get processExtension => _processExtension; // 添加getter
 
   int get selectedCount => _files.where((f) => f.isSelected).length;
   int get totalCount => _files.length;
@@ -112,7 +114,7 @@ class AppState extends ChangeNotifier {
         _files.add(fileItem);
       }
     }
-    _updatePreviews();
+    executePreviews();
     notifyListeners();
   }
 
@@ -178,30 +180,10 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  // 规则操作
-  void addRule(Rule rule) {
-    _rules.add(rule);
-    _updatePreviews();
-    notifyListeners();
-  }
-
-  void removeRule(int index) {
-    if (index >= 0 && index < _rules.length) {
-      _rules.removeAt(index);
-      _updatePreviews();
-      notifyListeners();
-    }
-  }
-
-  void clearRules() {
-    _rules.clear();
-    _updatePreviews();
-    notifyListeners();
-  }
-
-  // 设置操作
-  void setDryRun(bool value) {
-    _isDryRun = value;
+  void removeSelectedFiles() {
+    _files.removeWhere((file) => file.isSelected);
+    _updateSelectAllState();
+    executePreviews();
     notifyListeners();
   }
 
@@ -213,37 +195,33 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  // 预览功能
-  void _updatePreviews() {
-    for (final file in _files) {
-      String result = path.basenameWithoutExtension(file.fileName);
-      final extension = path.extension(file.fileName);
+  // 规则操作
+  void addRule(Rule rule) {
+    _rules.add(rule);
+    executePreviews();
+    notifyListeners();
+  }
 
-      try {
-        for (final rule in _rules) {
-          // 这里需要同步版本的规则应用，或者使用Future
-          // 暂时使用简化版本
-          result = _applyRuleSync(rule, result);
-        }
-
-        final newFileName = result + extension;
-        file.newName = newFileName;
-        file.status = newFileName != file.fileName
-            ? FileStatus.changed
-            : FileStatus.unchanged;
-      } catch (e) {
-        file.status = FileStatus.error;
-        file.newName = file.fileName;
-      }
+  void removeRule(int index) {
+    if (index >= 0 && index < _rules.length) {
+      _rules.removeAt(index);
+      executePreviews();
+      notifyListeners();
     }
   }
 
-  String _applyRuleSync(Rule rule, String input) {
-    // 简化的同步规则应用
-    if (rule is PatternRule) {
-      return input.replaceAll(rule.pattern, rule.replace);
+  void clearRules() {
+    _rules.clear();
+    executePreviews();
+    notifyListeners();
+  }
+
+  void updateRule(int index, Rule newRule) {
+    if (index >= 0 && index < _rules.length) {
+      _rules[index] = newRule;
+      executePreviews();
+      notifyListeners();
     }
-    return input;
   }
 
   // 规则描述
@@ -254,33 +232,103 @@ class AppState extends ChangeNotifier {
     return rule.name;
   }
 
-  // 执行重命名
+  // 格式化日期
+  String _formatDate(DateTime date) {
+    return '${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  // 预览和执行重命名
+  Future<void> executePreviews() async {
+    // 清空并重新添加规则
+    _renamer.clearRules();
+    for (final rule in _rules) {
+      _renamer.addRule(rule);
+    }
+
+    // 清空并重新添加文件
+    _renamer.clearFiles();
+    _renamer.addFiles(_files.map((f) => f.filePath).toList());
+
+    // 设置不处理扩展名（保持原有逻辑）
+    _renamer.setProcessExtension(_processExtension);
+
+    // 设置是否为预览模式
+    _renamer.setDryRun(true);
+
+    // 使用 applyBatch 批量处理
+    final results = await _renamer.applyBatch();
+
+    // 更新文件状态
+    for (int i = 0; i < _files.length && i < results.length; i++) {
+      final file = _files[i];
+      final result = results[i];
+
+      if (result.status == RenameStatus.success) {
+        final newFileName = path.basename(result.newPath);
+        file.newName = newFileName;
+        file.status = newFileName != file.fileName
+            ? FileStatus.changed
+            : FileStatus.unchanged;
+      } else {
+        file.status = FileStatus.error;
+        file.newName = file.fileName;
+      }
+    }
+  }
+
   Future<void> executeRename() async {
     final selectedFiles = _files.where((f) => f.isSelected).toList();
 
-    for (final fileItem in selectedFiles) {
-      if (fileItem.newName != null && fileItem.newName != fileItem.fileName) {
-        try {
-          if (!_isDryRun) {
-            final oldFile = File(fileItem.filePath);
-            final newPath = path.join(
-              path.dirname(fileItem.filePath),
-              fileItem.newName!,
-            );
-            await oldFile.rename(newPath);
-            fileItem.filePath = newPath;
-            fileItem.fileName = fileItem.newName!;
-          }
-        } catch (e) {
+    if (selectedFiles.isEmpty) {
+      return;
+    }
+
+    // 准备 renamer
+    _renamer.clearRules();
+    for (final rule in _rules) {
+      _renamer.addRule(rule);
+    }
+
+    _renamer.clearFiles();
+    _renamer.addFiles(selectedFiles.map((f) => f.filePath).toList());
+
+    _renamer.setProcessExtension(_processExtension);
+    _renamer.setDryRun(false);
+
+    try {
+      // 使用 applyBatch 执行重命名
+      final results = await _renamer.applyBatch();
+
+      // 更新文件状态和路径
+      for (int i = 0; i < selectedFiles.length && i < results.length; i++) {
+        final fileItem = selectedFiles[i];
+        final result = results[i];
+
+        if (result.status == RenameStatus.success) {
+          fileItem.filePath = result.newPath;
+          fileItem.fileName = path.basename(result.newPath);
+          fileItem.status = FileStatus.unchanged;
+          fileItem.newName = path.basename(result.newPath);
+        } else {
           fileItem.status = FileStatus.error;
+          // 可以添加错误信息到 FileItem 中
         }
+      }
+    } catch (e) {
+      // 处理批量操作异常
+      for (final fileItem in selectedFiles) {
+        fileItem.status = FileStatus.error;
       }
     }
 
     notifyListeners();
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  // 添加设置processExtension的方法
+  void setProcessExtension(bool value) {
+    _processExtension = value;
+    _renamer.setProcessExtension(value);
+    executePreviews(); // 重新生成预览
+    notifyListeners();
   }
 }
