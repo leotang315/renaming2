@@ -5,8 +5,18 @@ import '../widgets/rules_panel.dart';
 import '../widgets/files_panel.dart';
 import '../utils/theme.dart';
 
-class MainPage extends StatelessWidget {
+class MainPage extends StatefulWidget {
   const MainPage({super.key});
+
+  @override
+  State<MainPage> createState() => _MainPageState();
+}
+
+class _MainPageState extends State<MainPage> {
+  double _rulesPanelWidth = 300.0;
+  final double _minWidth = 200.0;
+  final double _maxWidth = 500.0;
+  bool _isResizing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -16,14 +26,51 @@ class MainPage extends StatelessWidget {
         children: [
           // 左侧规则面板
           Container(
-            width: 300,
+            width: _rulesPanelWidth,
             decoration: const BoxDecoration(
               color: AppTheme.panelColor,
-              border: Border(
-                right: BorderSide(color: AppTheme.borderColor),
-              ),
             ),
             child: const RulesPanel(),
+          ),
+          // 可拖拽的分隔条
+          MouseRegion(
+            cursor: SystemMouseCursors.resizeColumn,
+            child: GestureDetector(
+              onPanStart: (details) {
+                setState(() {
+                  _isResizing = true;
+                });
+              },
+              onPanUpdate: (details) {
+                setState(() {
+                  _rulesPanelWidth += details.delta.dx;
+                  _rulesPanelWidth = _rulesPanelWidth.clamp(_minWidth, _maxWidth);
+                });
+              },
+              onPanEnd: (details) {
+                setState(() {
+                  _isResizing = false;
+                });
+              },
+              child: Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: _isResizing 
+                      ? AppTheme.primaryColor.withOpacity(0.3)
+                      : AppTheme.borderColor,
+                  border: const Border(
+                    right: BorderSide(color: AppTheme.borderColor),
+                  ),
+                ),
+                child: Container(
+                  width: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                  color: _isResizing 
+                      ? AppTheme.primaryColor
+                      : Colors.transparent,
+                ),
+              ),
+            ),
           ),
           // 右侧文件面板
           const Expanded(
