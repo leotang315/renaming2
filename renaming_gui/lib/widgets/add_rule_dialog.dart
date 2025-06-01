@@ -86,6 +86,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
     if (_needsParam2() && _param2Controller.text.isEmpty) return;
 
     Rule rule;
+
     switch (_selectedRuleType) {
       case 'addPrefix':
         rule = RuleFactory.addPrefix(_param1Controller.text);
@@ -101,12 +102,12 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
           _param1Controller.text,
           _param2Controller.text,
         );
-        break;
       default:
         return;
     }
 
     widget.onRuleAdded(rule);
+
     Navigator.of(context).pop();
   }
 
