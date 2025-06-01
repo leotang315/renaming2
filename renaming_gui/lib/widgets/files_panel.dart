@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:desktop_drop/desktop_drop.dart'; // 添加这个导入
+import 'dart:io';
 import '../models/app_state.dart';
 import '../utils/theme.dart';
 
-class FilesPanel extends StatelessWidget {
+class FilesPanel extends StatefulWidget {
+  // 改为StatefulWidget
   const FilesPanel({super.key});
+
+  @override
+  State<FilesPanel> createState() => _FilesPanelState();
+}
+
+class _FilesPanelState extends State<FilesPanel> {
+  bool _isDragging = false; // 添加拖拽状态
 
   @override
   Widget build(BuildContext context) {
@@ -83,11 +93,77 @@ class FilesPanel extends StatelessWidget {
             },
           ),
         ),
-        // 文件表格
+        // 文件表格 - 添加拖拽功能
         Expanded(
           child: Consumer<AppState>(
             builder: (context, appState, child) {
-              return _buildFileTable(context, appState);
+              return DropTarget(
+                onDragDone: (detail) => _handleFileDrop(detail, appState),
+                onDragEntered: (detail) {
+                  setState(() {
+                    _isDragging = true;
+                  });
+                },
+                onDragExited: (detail) {
+                  setState(() {
+                    _isDragging = false;
+                  });
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    // border: _isDragging
+                    //     ? Border.all(
+                    //         color: AppTheme.primaryColor,
+                    //         width: 2,
+                    //         style: BorderStyle.solid,
+                    //       )
+                    //     : null,
+                    color: _isDragging
+                        ? AppTheme.primaryColor.withOpacity(0.1)
+                        : null,
+                  ),
+                  child: Stack(
+                    children: [
+                      _buildFileTable(context, appState),
+                      if (_isDragging)
+                        Container(
+                          width: double.infinity,
+                          height: double.infinity,
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          child: const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.cloud_upload,
+                                  size: 64,
+                                  color: AppTheme.primaryColor,
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  '拖放文件到这里',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  '支持多个文件和文件夹',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
             },
           ),
         ),
@@ -126,6 +202,74 @@ class FilesPanel extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  // 添加处理文件拖拽的方法
+  void _handleFileDrop(DropDoneDetails detail, AppState appState) {
+    setState(() {
+      _isDragging = false;
+    });
+
+    final files = detail.files;
+    if (files.isEmpty) return;
+
+    final filePaths = <String>[];
+
+    for (final file in files) {
+      final path = file.path;
+      final fileEntity = File(path);
+      final dirEntity = Directory(path);
+
+      if (fileEntity.existsSync()) {
+        // 单个文件
+        filePaths.add(path);
+      } else if (dirEntity.existsSync()) {
+        // 文件夹 - 递归获取所有文件
+        final dirFiles = _getFilesFromDirectory(dirEntity);
+        filePaths.addAll(dirFiles);
+      }
+    }
+
+    if (filePaths.isNotEmpty) {
+      appState.addFiles(filePaths);
+
+      // 显示成功提示
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('成功添加 ${filePaths.length} 个文件'),
+            backgroundColor: AppTheme.successColor,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  // 递归获取文件夹中的所有文件
+  List<String> _getFilesFromDirectory(Directory directory) {
+    final files = <String>[];
+
+    try {
+      final entities = directory.listSync(recursive: true);
+      for (final entity in entities) {
+        if (entity is File) {
+          files.add(entity.path);
+        }
+      }
+    } catch (e) {
+      // 处理权限错误等异常
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('读取文件夹失败: ${e.toString()}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
+
+    return files;
   }
 
   Widget _buildActionButton(String text, VoidCallback onPressed) {
