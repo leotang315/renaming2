@@ -225,7 +225,7 @@ class _FilesPanelState extends State<FilesPanel> {
         filePaths.add(path);
       } else if (dirEntity.existsSync()) {
         // 文件夹 - 递归获取所有文件
-        final dirFiles = _getFilesFromDirectory(dirEntity);
+        final dirFiles = _getFilesFromDirectory(path);
         filePaths.addAll(dirFiles);
       }
     }
@@ -247,9 +247,9 @@ class _FilesPanelState extends State<FilesPanel> {
   }
 
   // 递归获取文件夹中的所有文件
-  List<String> _getFilesFromDirectory(Directory directory) {
+  List<String> _getFilesFromDirectory(String directoryPath) {
     final files = <String>[];
-
+    final directory = Directory(directoryPath);
     try {
       final entities = directory.listSync(recursive: true);
       for (final entity in entities) {
@@ -491,7 +491,38 @@ class _FilesPanelState extends State<FilesPanel> {
     final result = await FilePicker.platform.getDirectoryPath();
     if (result != null) {
       // 获取文件夹中的所有文件
-      // 这里需要实现文件夹扫描逻辑
+      try {
+        final files = await _getFilesFromDirectory(result);
+        if (files.isNotEmpty) {
+          appState.addFiles(files);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('已添加 ${files.length} 个文件'),
+                backgroundColor: AppTheme.successColor,
+              ),
+            );
+          }
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('文件夹中没有找到文件'),
+                backgroundColor: AppTheme.warningColor,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('扫描文件夹时出错: $e'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+      }
     }
   }
 
