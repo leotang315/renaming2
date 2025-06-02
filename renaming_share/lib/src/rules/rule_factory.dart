@@ -131,10 +131,9 @@ class RuleFactory {
 
   // Replace pattern
   static Rule replacePattern(String oldPattern, String newPattern) {
-    final escapedOldPattern = RegExp.escape(oldPattern);
     return PatternRule(
       name: "ReplacePattern",
-      pattern: escapedOldPattern,
+      pattern: oldPattern,
       replace: newPattern,
     );
   }
