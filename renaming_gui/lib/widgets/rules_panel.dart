@@ -25,15 +25,82 @@ class RulesPanel extends StatelessWidget {
               bottom: BorderSide(color: AppTheme.borderColor),
             ),
           ),
-          child: Row(
-            children: [
-              const Icon(Icons.settings, color: AppTheme.textColor, size: 16),
-              const SizedBox(width: 8),
-              Text(
-                '重命名规则',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
+          child: Consumer<AppState>(
+            builder: (context, appState, child) {
+              return Row(
+                children: [
+                  const Icon(Icons.rule, color: AppTheme.textColor, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    '规则',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const Spacer(),
+                  // 添加规则按钮
+                  Tooltip(
+                    message: '添加规则',
+                    child: IconButton(
+                      onPressed: () => _showAddRuleDialog(context),
+                      icon: const Icon(Icons.add_circle_outline, size: 18),
+                      color: AppTheme.textColor,
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.successColor.withOpacity(0.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // 保存配置按钮
+                  Tooltip(
+                    message: '保存配置',
+                    child: IconButton(
+                      onPressed: () => _saveRulesConfig(context, appState),
+                      icon: const Icon(Icons.upload, size: 18),
+                      color: AppTheme.textColor,
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.warningColor.withOpacity(0.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // 加载配置按钮
+                  Tooltip(
+                    message: '加载配置',
+                    child: IconButton(
+                      onPressed: () => _loadRulesConfig(context, appState),
+                      icon: const Icon(Icons.download, size: 18),
+                      color: AppTheme.textColor,
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.warningColor.withOpacity(0.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
         // 规则内容
@@ -57,13 +124,13 @@ class RulesPanel extends StatelessWidget {
                       ),
                     ),
 
-                    // 底部固定区域
+                    // 底部固定区域 - 只保留处理扩展名的checkbox
                     Column(
                       children: [
                         // 添加处理扩展名的checkbox
                         Container(
                           height: 32,
-                          margin: const EdgeInsets.only(bottom: 4),
+                          margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 6),
                           decoration: BoxDecoration(
@@ -93,51 +160,6 @@ class RulesPanel extends StatelessWidget {
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-
-                        // 保存和加载配置按钮
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () =>
-                                    _saveRulesConfig(context, appState),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 8),
-                                ),
-                                child: const Text('保存配置'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () =>
-                                    _loadRulesConfig(context, appState),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orange,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 8),
-                                ),
-                                child: const Text('加载配置'),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-
-                        // 添加规则按钮
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () => _showAddRuleDialog(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryColor,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                            ),
-                            child: const Text('+ 添加规则'),
                           ),
                         ),
                       ],
@@ -182,7 +204,7 @@ class RulesPanel extends StatelessWidget {
                 onTap: () => _editRule(context, rule, index),
                 child: const Padding(
                   padding: EdgeInsets.all(2),
-                  child: Text('✏️', style: TextStyle(fontSize: 11)),
+                  child: Icon(Icons.edit, size: 14, color: AppTheme.textColor),
                 ),
               ),
               const SizedBox(width: 4),
@@ -190,7 +212,8 @@ class RulesPanel extends StatelessWidget {
                 onTap: () => appState.removeRule(index),
                 child: const Padding(
                   padding: EdgeInsets.all(2),
-                  child: Text('❌', style: TextStyle(fontSize: 11)),
+                  child:
+                      Icon(Icons.delete, size: 14, color: AppTheme.errorColor),
                 ),
               ),
             ],

@@ -36,57 +36,78 @@ class _FilesPanelState extends State<FilesPanel> {
             builder: (context, appState, child) {
               return Row(
                 children: [
-                  const Icon(Icons.file_copy,
+                  const Icon(Icons.file_present,
                       color: AppTheme.textColor, size: 16),
                   const SizedBox(width: 8),
                   Text(
-                    '文件列表与预览',
+                    '文件管理器',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const Spacer(),
-                  ElevatedButton.icon(
-                    onPressed: () => _selectFolder(context, appState),
-                    icon: const Text('📁'),
-                    label: const Text('选择文件夹'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      textStyle: const TextStyle(fontSize: 12),
+                  // 添加文件按钮
+                  Tooltip(
+                    message: '添加文件',
+                    child: IconButton(
+                      onPressed: () => _addFiles(context, appState),
+                      icon: const Icon(Icons.add_circle_outline),
+                      color: AppTheme.textColor,
+                      iconSize: 20,
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.warningColor.withOpacity(0.1),
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(32, 32),
+                        fixedSize: const Size(32, 32),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => _addFiles(context, appState),
-                    icon: const Text('📄'),
-                    label: const Text('添加文件'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      textStyle: const TextStyle(fontSize: 12),
+                  // 选择文件夹按钮
+                  Tooltip(
+                    message: '选择文件夹',
+                    child: IconButton(
+                      onPressed: () => _selectFolder(context, appState),
+                      icon: const Icon(Icons.folder_open_outlined),
+                      color: AppTheme.textColor,
+                      iconSize: 20,
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.warningColor.withOpacity(0.1),
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(32, 32),
+                        fixedSize: const Size(32, 32),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: appState.selectedCount > 0
-                        ? () => _removeSelectedFiles(context, appState)
-                        : null,
-                    icon: const Text('🗑️'),
-                    label: const Text('删除文件'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.errorColor,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      textStyle: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    appState.selectionInfo,
-                    style: const TextStyle(
-                      color: AppTheme.textSecondaryColor,
-                      fontSize: 11,
+
+                  // 删除文件按钮
+                  Tooltip(
+                    message: '删除选中文件',
+                    child: IconButton(
+                      onPressed: appState.selectedCount > 0
+                          ? () => _removeSelectedFiles(context, appState)
+                          : null,
+                      icon: const Icon(Icons.delete),
+                      color: appState.selectedCount > 0
+                          ? AppTheme.errorColor
+                          : AppTheme.textSecondaryColor,
+                      iconSize: 20,
+                      style: IconButton.styleFrom(
+                        backgroundColor: appState.selectedCount > 0
+                            ? AppTheme.warningColor.withOpacity(0.1)
+                            : Colors.transparent,
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(32, 32),
+                        fixedSize: const Size(32, 32),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -168,39 +189,6 @@ class _FilesPanelState extends State<FilesPanel> {
             },
           ),
         ),
-        // 底部操作栏
-        // Container(
-        //   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        //   decoration: const BoxDecoration(
-        //     color: AppTheme.headerColor,
-        //     border: Border(
-        //       top: BorderSide(color: AppTheme.borderColor),
-        //     ),
-        //   ),
-        //   child: Consumer<AppState>(
-        //     builder: (context, appState, child) {
-        //       return Row(
-        //         children: [
-        //           const Spacer(),
-        //           // 执行按钮
-        //           ElevatedButton(
-        //             onPressed: appState.canExecute
-        //                 ? () => _executeRename(context, appState)
-        //                 : null,
-        //             style: ElevatedButton.styleFrom(
-        //               backgroundColor: AppTheme.successColor,
-        //               padding: const EdgeInsets.symmetric(
-        //                   horizontal: 16, vertical: 8),
-        //               textStyle: const TextStyle(
-        //                   fontSize: 12, fontWeight: FontWeight.w600),
-        //             ),
-        //             child: const Text('开始重命名'),
-        //           ),
-        //         ],
-        //       );
-        //     },
-        //   ),
-        // ),
       ],
     );
   }
@@ -364,7 +352,7 @@ class _FilesPanelState extends State<FilesPanel> {
 
     return TableRow(
       decoration: BoxDecoration(
-        color: rowColor,
+        // color: rowColor,
         border: const Border(
           bottom: BorderSide(color: AppTheme.borderColor, width: 1),
         ),

@@ -10,7 +10,7 @@ class BottomPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: const BoxDecoration(
         color: AppTheme.headerColor,
         border: Border(
@@ -21,6 +21,29 @@ class BottomPanel extends StatelessWidget {
         builder: (context, appState, child) {
           return Row(
             children: [
+              // 状态信息
+              Icon(Icons.info_outline,
+                  size: 14, color: AppTheme.textMutedColor),
+              const SizedBox(width: 6),
+              Text(
+                '${appState.selectedCount}/${appState.files.length} 个文件',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textMutedColor,
+                ),
+              ),
+              const SizedBox(width: 16),
+              if (appState.rules.isNotEmpty) ...[
+                Icon(Icons.rule, size: 14, color: AppTheme.textMutedColor),
+                const SizedBox(width: 6),
+                Text(
+                  '${appState.rules.length} 条规则',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.textMutedColor,
+                  ),
+                ),
+              ],
               const Spacer(),
               // 执行按钮
               ElevatedButton(
@@ -28,9 +51,9 @@ class BottomPanel extends StatelessWidget {
                     ? () => _executeRename(context, appState)
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.successColor,
+                  backgroundColor: AppTheme.primaryColor,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
                   textStyle: const TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w600),
                 ),
