@@ -168,38 +168,38 @@ class _FilesPanelState extends State<FilesPanel> {
           ),
         ),
         // 底部操作栏
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: const BoxDecoration(
-            color: AppTheme.headerColor,
-            border: Border(
-              top: BorderSide(color: AppTheme.borderColor),
-            ),
-          ),
-          child: Consumer<AppState>(
-            builder: (context, appState, child) {
-              return Row(
-                children: [
-                  const Spacer(),
-                  // 执行按钮
-                  ElevatedButton(
-                    onPressed: appState.canExecute
-                        ? () => _executeRename(context, appState)
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.successColor,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      textStyle: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                    child: const Text('开始重命名'),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
+        // Container(
+        //   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        //   decoration: const BoxDecoration(
+        //     color: AppTheme.headerColor,
+        //     border: Border(
+        //       top: BorderSide(color: AppTheme.borderColor),
+        //     ),
+        //   ),
+        //   child: Consumer<AppState>(
+        //     builder: (context, appState, child) {
+        //       return Row(
+        //         children: [
+        //           const Spacer(),
+        //           // 执行按钮
+        //           ElevatedButton(
+        //             onPressed: appState.canExecute
+        //                 ? () => _executeRename(context, appState)
+        //                 : null,
+        //             style: ElevatedButton.styleFrom(
+        //               backgroundColor: AppTheme.successColor,
+        //               padding: const EdgeInsets.symmetric(
+        //                   horizontal: 16, vertical: 8),
+        //               textStyle: const TextStyle(
+        //                   fontSize: 12, fontWeight: FontWeight.w600),
+        //             ),
+        //             child: const Text('开始重命名'),
+        //           ),
+        //         ],
+        //       );
+        //     },
+        //   ),
+        // ),
       ],
     );
   }
@@ -233,16 +233,10 @@ class _FilesPanelState extends State<FilesPanel> {
     if (filePaths.isNotEmpty) {
       appState.addFiles(filePaths);
 
-      // 显示成功提示
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('成功添加 ${filePaths.length} 个文件'),
-            backgroundColor: AppTheme.successColor,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      _showMessage(
+        context,
+        message: '成功添加 ${filePaths.length} 个文件',
+      );
     }
   }
 
@@ -260,12 +254,7 @@ class _FilesPanelState extends State<FilesPanel> {
     } catch (e) {
       // 处理权限错误等异常
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('读取文件夹失败: ${e.toString()}'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
+        _showError(context, e);
       }
     }
 
@@ -496,31 +485,23 @@ class _FilesPanelState extends State<FilesPanel> {
         if (files.isNotEmpty) {
           appState.addFiles(files);
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('已添加 ${files.length} 个文件'),
-                backgroundColor: AppTheme.successColor,
-              ),
+            _showMessage(
+              context,
+              message: '已添加 ${files.length} 个文件',
             );
           }
         } else {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('文件夹中没有找到文件'),
-                backgroundColor: AppTheme.warningColor,
-              ),
+            _showMessage(
+              context,
+              message: '文件夹中没有找到文件',
+              backgroundColor: AppTheme.warningColor,
             );
           }
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('扫描文件夹时出错: $e'),
-              backgroundColor: AppTheme.errorColor,
-            ),
-          );
+          _showError(context, e);
         }
       }
     }
@@ -545,20 +526,17 @@ class _FilesPanelState extends State<FilesPanel> {
     try {
       await appState.executeRename();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('重命名完成'),
-            backgroundColor: AppTheme.successColor,
-          ),
+        _showMessage(
+          context,
+          message: '重命名完成',
         );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('操作失败: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
+        _showMessage(
+          context,
+          message: '操作失败: $e',
+          backgroundColor: AppTheme.errorColor,
         );
       }
     }
@@ -582,11 +560,9 @@ class _FilesPanelState extends State<FilesPanel> {
                 onPressed: () {
                   Navigator.of(context).pop();
                   appState.removeSelectedFiles();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('已删除 $selectedCount 个文件'),
-                      backgroundColor: AppTheme.successColor,
-                    ),
+                  _showMessage(
+                    context,
+                    message: '已删除 $selectedCount 个文件',
                   );
                 },
                 child: const Text('删除'),
@@ -596,5 +572,32 @@ class _FilesPanelState extends State<FilesPanel> {
         },
       );
     }
+  }
+
+  // 显示提示消息
+  void _showMessage(
+    BuildContext context, {
+    required String message,
+    Color backgroundColor = AppTheme.successColor,
+    Duration duration = const Duration(seconds: 1),
+  }) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: backgroundColor,
+          duration: duration,
+        ),
+      );
+    }
+  }
+
+  // 显示错误消息
+  void _showError(BuildContext context, Object error) {
+    _showMessage(
+      context,
+      message: '读取文件夹失败: ${error.toString()}',
+      backgroundColor: AppTheme.errorColor,
+    );
   }
 }

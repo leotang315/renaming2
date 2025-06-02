@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:renaming_gui/widgets/Bottom_panel.dart';
 import '../models/app_state.dart';
 import '../widgets/rules_panel.dart';
 import '../widgets/files_panel.dart';
@@ -13,7 +14,7 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  double _rulesPanelWidth = 300.0;
+  double _rulesPanelWidth = 200.0;
   final double _minWidth = 200.0;
   final double _maxWidth = 500.0;
   bool _isResizing = false;
@@ -44,7 +45,8 @@ class _MainPageState extends State<MainPage> {
               onPanUpdate: (details) {
                 setState(() {
                   _rulesPanelWidth += details.delta.dx;
-                  _rulesPanelWidth = _rulesPanelWidth.clamp(_minWidth, _maxWidth);
+                  _rulesPanelWidth =
+                      _rulesPanelWidth.clamp(_minWidth, _maxWidth);
                 });
               },
               onPanEnd: (details) {
@@ -55,7 +57,7 @@ class _MainPageState extends State<MainPage> {
               child: Container(
                 width: 4,
                 decoration: BoxDecoration(
-                  color: _isResizing 
+                  color: _isResizing
                       ? AppTheme.primaryColor.withOpacity(0.3)
                       : AppTheme.borderColor,
                   border: const Border(
@@ -65,9 +67,8 @@ class _MainPageState extends State<MainPage> {
                 child: Container(
                   width: 1,
                   margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                  color: _isResizing 
-                      ? AppTheme.primaryColor
-                      : Colors.transparent,
+                  color:
+                      _isResizing ? AppTheme.primaryColor : Colors.transparent,
                 ),
               ),
             ),
@@ -78,6 +79,7 @@ class _MainPageState extends State<MainPage> {
           ),
         ],
       ),
+      bottomNavigationBar: const BottomPanel(),
     );
   }
 }
