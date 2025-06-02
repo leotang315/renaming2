@@ -17,7 +17,8 @@ dependencies:
   path: ^1.9.0
   renaming_share:
     path: ../renaming_share
-  desktop_drop: ^0.4.4  
+  desktop_drop: ^0.4.4
+  logger: ^2.0.2+1  # 添加日志库
 
 dev_dependencies:
   flutter_test:
