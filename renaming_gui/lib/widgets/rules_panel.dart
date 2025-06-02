@@ -41,60 +41,75 @@ class RulesPanel extends StatelessWidget {
                 padding: const EdgeInsets.all(8.0),
                 child: Column(
                   children: [
-                    // 规则组
-                    if (appState.rules.isNotEmpty)
-                      ..._buildRuleList(context, appState),
-
-                    // 添加处理扩展名的checkbox
-                    Container(
-                      height: 32,
-                      margin: const EdgeInsets.only(bottom: 4),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.headerColor,
-                        borderRadius: BorderRadius.circular(3),
-                        border: const Border(
-                          left: BorderSide(color: Color(0xFF007ACC), width: 3),
+                    // 规则列表区域 - 添加滚动功能
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            // 规则组
+                            if (appState.rules.isNotEmpty)
+                              ..._buildRuleList(context, appState),
+                          ],
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Spacer(),
-                          Checkbox(
-                            value: appState.processExtension,
-                            onChanged: (value) {
-                              appState.setProcessExtension(value ?? false);
-                            },
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          const SizedBox(width: 8),
-                          const Tooltip(
-                            message: '勾选后，重命名规则将应用到文件扩展名部分',
-                            child: Text(
-                              '处理文件扩展名',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.textColor,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
 
-                    // 添加规则按钮
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => _showAddRuleDialog(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
+                    // 底部固定区域
+                    Column(
+                      children: [
+                        // 添加处理扩展名的checkbox
+                        Container(
+                          height: 32,
+                          margin: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.headerColor,
+                            borderRadius: BorderRadius.circular(3),
+                            // border: const Border(
+                            //   left: BorderSide(
+                            //       color: Color(0xFF007ACC), width: 3),
+                            // ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Spacer(),
+                              Checkbox(
+                                value: appState.processExtension,
+                                onChanged: (value) {
+                                  appState.setProcessExtension(value ?? false);
+                                },
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              const SizedBox(width: 8),
+                              const Tooltip(
+                                message: '勾选后，重命名规则将应用到文件扩展名部分',
+                                child: Text(
+                                  '处理文件扩展名',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: const Text('+ 添加规则'),
-                      ),
+
+                        // 添加规则按钮
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () => _showAddRuleDialog(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                            child: const Text('+ 添加规则'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
