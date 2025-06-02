@@ -542,6 +542,7 @@ class _FilesPanelState extends State<FilesPanel> {
                 child: const Text('取消'),
               ),
               TextButton(
+                autofocus: true, // 默认焦点在删除按钮上
                 onPressed: () {
                   Navigator.of(context).pop();
                   appState.removeSelectedFiles();
