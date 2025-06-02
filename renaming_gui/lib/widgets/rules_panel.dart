@@ -4,6 +4,9 @@ import 'package:renaming_share/renaming_share.dart';
 import '../models/app_state.dart';
 import '../utils/theme.dart';
 import 'add_rule_dialog.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 
 class RulesPanel extends StatelessWidget {
   const RulesPanel({super.key});
@@ -66,10 +69,6 @@ class RulesPanel extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: AppTheme.headerColor,
                             borderRadius: BorderRadius.circular(3),
-                            // border: const Border(
-                            //   left: BorderSide(
-                            //       color: Color(0xFF007ACC), width: 3),
-                            // ),
                           ),
                           child: Row(
                             children: [
@@ -96,6 +95,38 @@ class RulesPanel extends StatelessWidget {
                             ],
                           ),
                         ),
+
+                        // 保存和加载配置按钮
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () =>
+                                    _saveRulesConfig(context, appState),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('保存配置'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () =>
+                                    _loadRulesConfig(context, appState),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                                child: const Text('加载配置'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
 
                         // 添加规则按钮
                         SizedBox(
@@ -199,5 +230,98 @@ class RulesPanel extends StatelessWidget {
       final rule = entry.value;
       return _buildRuleItem(context, appState, rule, index);
     }).toList();
+  }
+
+  // 保存规则配置
+  Future<void> _saveRulesConfig(BuildContext context, AppState appState) async {
+    try {
+      String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: '保存规则配置',
+        fileName: 'rules_config.json',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+
+      if (outputFile != null) {
+        final config = {
+          'rules': appState.rules.map((rule) => rule.toJson()).toList(),
+          'processExtension': appState.processExtension,
+        };
+
+        final file = File(outputFile);
+        await file.writeAsString(jsonEncode(config));
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('规则配置保存成功'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('保存失败: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // 加载规则配置
+  Future<void> _loadRulesConfig(BuildContext context, AppState appState) async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        dialogTitle: '选择规则配置文件',
+      );
+
+      if (result != null) {
+        final file = File(result.files.single.path!);
+        final content = await file.readAsString();
+        final config = jsonDecode(content) as Map<String, dynamic>;
+
+        // 清空现有规则
+        appState.clearRules();
+
+        // 加载规则
+        if (config['rules'] != null) {
+          final rules = (config['rules'] as List)
+              .map((ruleJson) => Rule.fromJson(ruleJson))
+              .toList();
+          for (final rule in rules) {
+            appState.addRule(rule);
+          }
+        }
+
+        // 加载处理扩展名设置
+        if (config['processExtension'] != null) {
+          appState.setProcessExtension(config['processExtension'] as bool);
+        }
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('规则配置加载成功'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('加载失败: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
