@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:desktop_drop/desktop_drop.dart'; // 添加这个导入
+import 'package:renaming_share/renaming_share.dart';
 import 'dart:io';
 import '../models/app_state.dart';
 import '../utils/theme.dart';
@@ -385,7 +386,7 @@ class _FilesPanelState extends State<FilesPanel> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  file.fileName,
+                  file.srcName,
                   style: const TextStyle(
                     color: AppTheme.textColor,
                     fontSize: 12,
@@ -398,13 +399,13 @@ class _FilesPanelState extends State<FilesPanel> {
         ),
         _buildTableCell(
           child: Text(
-            file.newName ?? file.fileName,
+            file.dstName,
             style: TextStyle(
-              color: _getNewNameColor(file.status),
+              color: file.isChanged
+                  ? AppTheme.textSecondaryColor
+                  : AppTheme.textMutedColor,
               fontSize: 12,
-              fontWeight: file.status == FileStatus.changed
-                  ? FontWeight.w500
-                  : FontWeight.normal,
+              fontWeight: file.isChanged ? FontWeight.w500 : FontWeight.normal,
             ),
             overflow: TextOverflow.ellipsis,
           ),
@@ -441,18 +442,15 @@ class _FilesPanelState extends State<FilesPanel> {
     );
   }
 
-  Widget _buildStatusIndicator(FileStatus status) {
+  Widget _buildStatusIndicator(RenameStatus status) {
     Color color;
     switch (status) {
-      case FileStatus.unchanged:
+      case RenameStatus.pending:
         color = AppTheme.textMutedColor;
-        break;
-      case FileStatus.changed:
-        color = AppTheme.warningColor;
-        break;
-      case FileStatus.error:
+      case RenameStatus.success:
+        color = AppTheme.successColor;
+      case RenameStatus.error:
         color = AppTheme.errorColor;
-        break;
     }
 
     return Container(
@@ -463,17 +461,6 @@ class _FilesPanelState extends State<FilesPanel> {
         shape: BoxShape.circle,
       ),
     );
-  }
-
-  Color _getNewNameColor(FileStatus status) {
-    switch (status) {
-      case FileStatus.unchanged:
-        return AppTheme.textMutedColor;
-      case FileStatus.changed:
-        return AppTheme.textSecondaryColor;
-      case FileStatus.error:
-        return AppTheme.errorColor;
-    }
   }
 
   Future<void> _selectFolder(BuildContext context, AppState appState) async {
@@ -519,26 +506,6 @@ class _FilesPanelState extends State<FilesPanel> {
           .map((file) => file.path!)
           .toList();
       appState.addFiles(filePaths);
-    }
-  }
-
-  Future<void> _executeRename(BuildContext context, AppState appState) async {
-    try {
-      await appState.executeRename();
-      if (context.mounted) {
-        _showMessage(
-          context,
-          message: '重命名完成',
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        _showMessage(
-          context,
-          message: '操作失败: $e',
-          backgroundColor: AppTheme.errorColor,
-        );
-      }
     }
   }
 

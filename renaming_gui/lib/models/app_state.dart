@@ -4,37 +4,37 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 
 class FileItem {
-  String filePath;
-  String fileName;
+  bool isSelected;
+  String srcPath;
+  String srcName;
+  String dstPath;
+  RenameStatus status;
+  String? message;
   final String fileSize;
   final String modifiedDate;
-  final String fileType;
-  bool isSelected;
-  String? newName;
-  FileStatus status;
 
   FileItem({
-    required this.filePath,
-    required this.fileName,
+    required this.srcPath,
+    required this.srcName,
     required this.fileSize,
     required this.modifiedDate,
-    required this.fileType,
+    this.dstPath = '',
     this.isSelected = false,
-    this.newName,
-    this.status = FileStatus.unchanged,
+    this.status = RenameStatus.pending,
   });
 
   String get displaySize {
     final bytes = int.tryParse(fileSize) ?? 0;
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
+    if (bytes < 1024 * 1024 * 1024) {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
   String get fileIcon {
-    final ext = path.extension(fileName).toLowerCase();
+    final ext = path.extension(srcName).toLowerCase();
     switch (ext) {
       case '.jpg':
       case '.jpeg':
@@ -63,12 +63,17 @@ class FileItem {
         return '📄';
     }
   }
-}
 
-enum FileStatus {
-  unchanged,
-  changed,
-  error,
+  String get dstName {
+    if (dstPath.isEmpty) {
+      return "";
+    }
+    return path.basename(dstPath);
+  }
+
+  bool get isChanged {
+    return srcPath != dstPath;
+  }
 }
 
 class AppState extends ChangeNotifier {
@@ -101,19 +106,19 @@ class AppState extends ChangeNotifier {
         final fileName = path.basename(filePath);
         final fileSize = stat.size.toString();
         final modifiedDate = _formatDate(stat.modified);
-        final fileType = path.extension(fileName);
 
         final fileItem = FileItem(
-          filePath: filePath,
-          fileName: fileName,
+          srcPath: filePath,
+          srcName: fileName,
           fileSize: fileSize,
           modifiedDate: modifiedDate,
-          fileType: fileType,
+          isSelected: true,
         );
 
         _files.add(fileItem);
       }
     }
+    _updateSelectAllState();
     executePreviews();
     notifyListeners();
   }
@@ -128,7 +133,7 @@ class AppState extends ChangeNotifier {
 
   void clearFiles() {
     _files.clear();
-    _selectAll = false;
+    _updateSelectAllState();
     notifyListeners();
   }
 
@@ -141,32 +146,24 @@ class AppState extends ChangeNotifier {
   }
 
   void selectAllFiles() {
-    _selectAll = true;
     for (final file in _files) {
       file.isSelected = true;
     }
+    _updateSelectAllState();
     notifyListeners();
   }
 
   void deselectAllFiles() {
-    _selectAll = false;
     for (final file in _files) {
       file.isSelected = false;
     }
+    _updateSelectAllState();
     notifyListeners();
   }
 
   void invertSelection() {
     for (final file in _files) {
       file.isSelected = !file.isSelected;
-    }
-    _updateSelectAllState();
-    notifyListeners();
-  }
-
-  void selectChangedOnly() {
-    for (final file in _files) {
-      file.isSelected = file.status == FileStatus.changed;
     }
     _updateSelectAllState();
     notifyListeners();
@@ -247,7 +244,7 @@ class AppState extends ChangeNotifier {
 
     // 清空并重新添加文件
     _renamer.clearFiles();
-    _renamer.addFiles(_files.map((f) => f.filePath).toList());
+    _renamer.addFiles(_files.map((f) => f.srcPath).toList());
 
     // 设置不处理扩展名（保持原有逻辑）
     _renamer.setProcessExtension(_processExtension);
@@ -262,17 +259,9 @@ class AppState extends ChangeNotifier {
     for (int i = 0; i < _files.length && i < results.length; i++) {
       final file = _files[i];
       final result = results[i];
-
-      if (result.status == RenameStatus.success) {
-        final newFileName = path.basename(result.newPath);
-        file.newName = newFileName;
-        file.status = newFileName != file.fileName
-            ? FileStatus.changed
-            : FileStatus.unchanged;
-      } else {
-        file.status = FileStatus.error;
-        file.newName = file.fileName;
-      }
+      file.dstPath = result.newPath;
+      file.status = RenameStatus.pending;
+      file.message = result.message;
     }
   }
 
@@ -283,42 +272,25 @@ class AppState extends ChangeNotifier {
       return;
     }
 
-    // 准备 renamer
-    _renamer.clearRules();
-    for (final rule in _rules) {
-      _renamer.addRule(rule);
-    }
+    Renamer renamer = Renamer();
+    // 生成文件路径映射
+    final mapping = selectedFiles
+        .map((f) => RenameResult(
+              oldPath: f.srcPath,
+              newPath: f.dstPath,
+            ))
+        .toList();
+    final results = await renamer.applyMapping(mapping, RenameMode.normal);
 
-    _renamer.clearFiles();
-    _renamer.addFiles(selectedFiles.map((f) => f.filePath).toList());
-
-    _renamer.setProcessExtension(_processExtension);
-    _renamer.setDryRun(false);
-
-    try {
-      // 使用 applyBatch 执行重命名
-      final results = await _renamer.applyBatch();
-
-      // 更新文件状态和路径
-      for (int i = 0; i < selectedFiles.length && i < results.length; i++) {
-        final fileItem = selectedFiles[i];
-        final result = results[i];
-
-        if (result.status == RenameStatus.success) {
-          fileItem.filePath = result.newPath;
-          fileItem.fileName = path.basename(result.newPath);
-          fileItem.status = FileStatus.unchanged;
-          fileItem.newName = path.basename(result.newPath);
-        } else {
-          fileItem.status = FileStatus.error;
-          // 可以添加错误信息到 FileItem 中
-        }
-      }
-    } catch (e) {
-      // 处理批量操作异常
-      for (final fileItem in selectedFiles) {
-        fileItem.status = FileStatus.error;
-      }
+    // 更新文件状态和路径
+    for (int i = 0; i < selectedFiles.length && i < results.length; i++) {
+      final file = selectedFiles[i];
+      final result = results[i];
+      file.srcPath = result.newPath;
+      file.srcName = path.basename(result.newPath);
+      file.dstPath = result.newPath;
+      file.status = result.status;
+      file.message = result.message;
     }
 
     notifyListeners();

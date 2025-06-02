@@ -164,28 +164,17 @@ class Renamer {
     }
   }
 
-  Future<List<RenameResult>> applyBatch() async {
-    // 生成映射
+  Future<List<RenameResult>> generateMapping() async {
     mappings = await Future.wait(
       fileList.map((file) => generateSingleMapping(file)),
     );
-    List<RenameResult> results = await applyMapping(
-      mappings,
-      RenameMode.normal,
-    );
-
-    return results;
+    return mappings;
   }
 
   Future<List<RenameResult>> applyMapping(
     List<RenameResult> mappings, [
     RenameMode mode = RenameMode.normal,
   ]) async {
-    // 如果是预览模式，直接返回映射结果
-    if (dryRun) {
-      return mappings;
-    }
-
     // 执行实际重命名操作
     final results = List<RenameResult>.from(mappings);
 
@@ -239,6 +228,23 @@ class Renamer {
         );
       }
     }
+
+    return results;
+  }
+
+  Future<List<RenameResult>> applyBatch() async {
+    // 生成映射
+    mappings = await generateMapping();
+
+    // 如果是预览模式，直接返回映射结果
+    if (dryRun) {
+      return mappings;
+    }
+
+    List<RenameResult> results = await applyMapping(
+      mappings,
+      RenameMode.normal,
+    );
 
     return results;
   }

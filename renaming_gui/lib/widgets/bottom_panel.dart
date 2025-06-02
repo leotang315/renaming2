@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:renaming_gui/models/app_state.dart';
+import 'package:renaming_gui/utils/message_utils.dart';
 import 'package:renaming_gui/utils/theme.dart';
 
 class BottomPanel extends StatelessWidget {
@@ -23,8 +24,9 @@ class BottomPanel extends StatelessWidget {
               const Spacer(),
               // 执行按钮
               ElevatedButton(
-                onPressed:
-                    appState.canExecute ? () => appState.executeRename() : null,
+                onPressed: appState.canExecute
+                    ? () => _executeRename(context, appState)
+                    : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.successColor,
                   padding:
@@ -32,12 +34,32 @@ class BottomPanel extends StatelessWidget {
                   textStyle: const TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w600),
                 ),
-                child: const Text('开始重命名'),
+                child: const Text('重命名'),
               ),
             ],
           );
         },
       ),
     );
+  }
+
+  Future<void> _executeRename(BuildContext context, AppState appState) async {
+    try {
+      await appState.executeRename();
+      if (context.mounted) {
+        MessageUtils.showMessage(
+          context,
+          message: '重命名完成',
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        MessageUtils.showMessage(
+          context,
+          message: '操作失败: $e',
+          backgroundColor: AppTheme.errorColor,
+        );
+      }
+    }
   }
 }
