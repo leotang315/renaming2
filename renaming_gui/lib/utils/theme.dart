@@ -30,7 +30,7 @@ class AppTheme {
         foregroundColor: textColor,
         elevation: 0,
       ),
-      cardTheme: const CardTheme(
+      cardTheme: const CardThemeData(
         color: panelColor,
         elevation: 0,
       ),
