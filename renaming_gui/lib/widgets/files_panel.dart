@@ -416,16 +416,51 @@ class _FilesPanelState extends State<FilesPanel> {
           ),
         ),
         _buildTableCell(
-          child: Text(
-            file.dstName,
-            style: TextStyle(
-              color: file.isChanged
-                  ? AppTheme.textSecondaryColor
-                  : AppTheme.textMutedColor,
-              fontSize: 12,
-              fontWeight: file.isChanged ? FontWeight.w500 : FontWeight.normal,
+          child: GestureDetector(
+            onDoubleTap: () {
+              // 创建一个TextEditingController并设置初始值
+              final controller = TextEditingController(text: file.dstName);
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('修改文件名'),
+                  content: TextField(
+                    controller: controller,
+                    decoration: const InputDecoration(
+                      labelText: '新文件名',
+                      border: OutlineInputBorder(),
+                    ),
+                    autofocus: true,
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('取消'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        if (controller.text.isNotEmpty) {
+                          appState.updateFileName(index, controller.text);
+                        }
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('确定'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: Text(
+              file.dstName,
+              style: TextStyle(
+                color: file.isChanged
+                    ? AppTheme.textSecondaryColor
+                    : AppTheme.textMutedColor,
+                fontSize: 12,
+                fontWeight: file.isChanged ? FontWeight.w500 : FontWeight.normal,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
         ),
         _buildTableCell(

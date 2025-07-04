@@ -303,4 +303,12 @@ class AppState extends ChangeNotifier {
     executePreviews(); // 重新生成预览
     notifyListeners();
   }
+
+  void updateFileName(int index, String newName) {
+    if (index >= 0 && index < files.length) {
+      files[index].dstPath =
+          path.join(path.dirname(files[index].dstPath), newName);
+      notifyListeners();
+    }
+  }
 }
