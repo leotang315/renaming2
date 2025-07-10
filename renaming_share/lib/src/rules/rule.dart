@@ -5,7 +5,7 @@ abstract class Rule {
   String id = "";
   String name = "";
 
-  Future<String> apply(String input);
+  Future<String> apply(String input, {int? index});
 
   Map<String, dynamic> toJson();
 

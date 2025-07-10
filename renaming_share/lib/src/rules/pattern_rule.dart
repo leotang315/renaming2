@@ -9,7 +9,6 @@ class PatternRule implements Rule {
   @override
   String name;
   final String pattern;
-
   final String replace;
 
   PatternRule({
@@ -20,13 +19,16 @@ class PatternRule implements Rule {
   }) : type = 'pattern';
 
   @override
-  Future<String> apply(String input) async {
+  Future<String> apply(String input, {int? index}) async {
     final regex = RegExp(pattern);
-    // String result = input.replaceAllMapped(regex, (Match match) {
-    //   return "${match.group(3)}/${match.group(2)}/${match.group(1)}";
-    // });
-
-    return input.replaceAllWithGroups(regex, replace);
+    var replacement = replace;
+    
+    // 如果提供了索引，替换模板中的 ${index} 变量
+    if (index != null) {
+      replacement = replacement.replaceAll(r'${index}', index.toString());
+    }
+    
+    return input.replaceAllWithGroups(regex, replacement);
   }
 
   PatternRule copyWith({

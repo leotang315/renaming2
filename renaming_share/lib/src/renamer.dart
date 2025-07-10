@@ -119,7 +119,7 @@ class Renamer {
     }
   }
 
-  Future<RenameResult> generateSingleMapping(String path) async {
+  Future<RenameResult> generateSingleMapping(String path, {int? index}) async {
     var result = RenameResult(
       oldPath: path,
       newPath: '',
@@ -144,15 +144,14 @@ class Renamer {
         var baseName = p.basenameWithoutExtension(srcName);
 
         for (final rule in rules) {
-          baseName = await rule.apply(baseName);
+          baseName = await rule.apply(baseName, index: index);
         }
         processedName = '$baseName$ext';
       } else {
         processedName = srcName;
         for (final rule in rules) {
-          processedName = await rule.apply(processedName);
+          processedName = await rule.apply(processedName, index: index);
         }
-        print(processedName);
       }
 
       return result.copyWith(
@@ -166,7 +165,9 @@ class Renamer {
 
   Future<List<RenameResult>> generateMapping() async {
     mappings = await Future.wait(
-      fileList.map((file) => generateSingleMapping(file)),
+      fileList.asMap().entries.map(
+            (entry) => generateSingleMapping(entry.value, index: entry.key + 1),
+          ),
     );
     return mappings;
   }
