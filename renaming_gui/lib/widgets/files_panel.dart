@@ -416,39 +416,108 @@ class _FilesPanelState extends State<FilesPanel> {
           ),
         ),
         _buildTableCell(
-          child: GestureDetector(
-            onDoubleTap: () {
-              // 创建一个TextEditingController并设置初始值
+            child: Builder(
+          builder: (context) => InkWell(
+            onTap: () {
+              // final RenderBox? renderBox =
+              //     context.findRenderObject() as RenderBox?;
+
+              final RenderBox? renderBox =
+                  context.findAncestorRenderObjectOfType<RenderBox>();
+              if (renderBox == null) return;
+
+              final position = renderBox.localToGlobal(Offset.zero);
+              final size = renderBox.size;
+
+              final focusNode = FocusNode();
               final controller = TextEditingController(text: file.dstName);
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('修改文件名'),
-                  content: TextField(
-                    controller: controller,
-                    decoration: const InputDecoration(
-                      labelText: '新文件名',
-                      border: OutlineInputBorder(),
+              late final OverlayEntry overlay;
+              bool isRemoving = false;
+
+              void removeOverlay() {
+                if (!isRemoving) {
+                  isRemoving = true;
+                  overlay.remove();
+                  controller.dispose();
+                  focusNode.dispose();
+                }
+              }
+
+              overlay = OverlayEntry(
+                builder: (context) => Stack(
+                  children: [
+                    Positioned.fill(
+                      child: GestureDetector(
+                        onTap: removeOverlay,
+                        child: Container(
+                          color: Colors.transparent,
+                        ),
+                      ),
                     ),
-                    autofocus: true,
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('取消'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        if (controller.text.isNotEmpty) {
-                          appState.updateFileName(index, controller.text);
-                        }
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('确定'),
+                    Positioned(
+                      left: position.dx,
+                      top: position.dy,
+                      width: size.width,
+                      height: size.height,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.panelColor,
+                            border: Border.all(color: AppTheme.primaryColor),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Focus(
+                            focusNode: focusNode,
+                            onKeyEvent: (node, event) {
+                              if (event is KeyDownEvent &&
+                                  event.logicalKey ==
+                                      LogicalKeyboardKey.escape) {
+                                removeOverlay();
+                                return KeyEventResult.handled;
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                            child: TextField(
+                              controller: controller,
+                              style: TextStyle(
+                                color: file.isChanged
+                                    ? AppTheme.textSecondaryColor
+                                    : AppTheme.textMutedColor,
+                                fontSize: 12,
+                                fontWeight: file.isChanged
+                                    ? FontWeight.w500
+                                    : FontWeight.normal,
+                              ),
+                              decoration: const InputDecoration(
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                              onSubmitted: (value) {
+                                if (value.isNotEmpty) {
+                                  appState.updateFileName(index, value);
+                                }
+                                removeOverlay();
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               );
+
+              Overlay.of(context).insert(overlay);
+              focusNode.requestFocus();
+
+              focusNode.addListener(() {
+                if (!focusNode.hasFocus) {
+                  removeOverlay();
+                }
+              });
             },
             child: Text(
               file.dstName,
@@ -457,12 +526,13 @@ class _FilesPanelState extends State<FilesPanel> {
                     ? AppTheme.textSecondaryColor
                     : AppTheme.textMutedColor,
                 fontSize: 12,
-                fontWeight: file.isChanged ? FontWeight.w500 : FontWeight.normal,
+                fontWeight:
+                    file.isChanged ? FontWeight.w500 : FontWeight.normal,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
-        ),
+        )),
         _buildTableCell(
           child: Text(
             file.displaySize,
