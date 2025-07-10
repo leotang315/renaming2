@@ -176,51 +176,104 @@ class RulesPanel extends StatelessWidget {
 
   Widget _buildRuleItem(
       BuildContext context, AppState appState, Rule rule, int index) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppTheme.headerColor,
-        borderRadius: BorderRadius.circular(3),
-        border: const Border(
-          left: BorderSide(color: Color(0xFF007ACC), width: 3),
+    return ExpansionTile(
+      title: Text(
+        appState.getRuleDescription(rule),
+        style: const TextStyle(
+          color: AppTheme.textColor,
+          fontSize: 12,
         ),
       ),
-      child: Row(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.blue),
+      ),
+      collapsedShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey),
+      ),
+      controlAffinity: ListTileControlAffinity.leading,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Text(
-              appState.getRuleDescription(rule),
-              style: const TextStyle(
-                color: AppTheme.textColor,
-                fontSize: 12,
-              ),
+          InkWell(
+            onTap: () => _editRule(context, rule, index),
+            child: const Padding(
+              padding: EdgeInsets.all(2),
+              child: Icon(Icons.edit, size: 14, color: AppTheme.textColor),
             ),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              InkWell(
-                onTap: () => _editRule(context, rule, index),
-                child: const Padding(
-                  padding: EdgeInsets.all(2),
-                  child: Icon(Icons.edit, size: 14, color: AppTheme.textColor),
-                ),
-              ),
-              const SizedBox(width: 4),
-              InkWell(
-                onTap: () => appState.removeRule(index),
-                child: const Padding(
-                  padding: EdgeInsets.all(2),
-                  child:
-                      Icon(Icons.delete, size: 14, color: AppTheme.errorColor),
-                ),
-              ),
-            ],
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: () => appState.removeRule(index),
+            child: const Padding(
+              padding: EdgeInsets.all(2),
+              child: Icon(Icons.delete, size: 14, color: AppTheme.errorColor),
+            ),
           ),
         ],
       ),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 根据规则类型显示不同的编辑界面
+              _buildRuleEditingFields(rule, index, appState),
+            ],
+          ),
+        ),
+      ],
     );
+  }
+
+  // 添加新的辅助方法来构建规则编辑字段
+  Widget _buildRuleEditingFields(Rule rule, int index, AppState appState) {
+    // 根据规则类型返回对应的编辑字段
+    if (rule is PatternRule) {
+      return _buildTextEditField(
+        '前缀内容：',
+        "rule.prefix",
+        (value) => _updateRule(index, RuleFactory.addPrefix(value), appState),
+      );
+    } else if (rule is PatternRule) {
+      return _buildTextEditField(
+        '后缀内容：',
+        "rule.suffix",
+        (value) => _updateRule(index, RuleFactory.addSuffix(value), appState),
+      );
+    }
+    // 可以继续添加其他规则类型的编辑字段
+    return const Text('暂不支持直接编辑此类规则');
+  }
+
+  // 添加新的辅助方法来构建文本编辑字段
+  Widget _buildTextEditField(
+      String label, String initialValue, Function(String) onChanged) {
+    return Row(
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextField(
+            controller: TextEditingController(text: initialValue),
+            style: const TextStyle(fontSize: 12),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              border: OutlineInputBorder(),
+            ),
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 添加新的辅助方法来更新规则
+  void _updateRule(int index, Rule newRule, AppState appState) {
+    appState.updateRule(index, newRule);
   }
 
   void _showAddRuleDialog(BuildContext context) {
