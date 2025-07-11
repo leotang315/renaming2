@@ -22,12 +22,12 @@ class PatternRule implements Rule {
   Future<String> apply(String input, {int? index}) async {
     final regex = RegExp(pattern);
     var replacement = replace;
-    
+
     // 如果提供了索引，替换模板中的 ${index} 变量
     if (index != null) {
       replacement = replacement.replaceAll(r'${index}', index.toString());
     }
-    
+
     return input.replaceAllWithGroups(regex, replacement);
   }
 
