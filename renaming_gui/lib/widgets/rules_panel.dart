@@ -8,8 +8,33 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 
-class RulesPanel extends StatelessWidget {
+class RulesPanel extends StatefulWidget {
   const RulesPanel({super.key});
+
+  @override
+  State<RulesPanel> createState() => _RulesPanelState();
+}
+
+class _RulesPanelState extends State<RulesPanel> {
+  // 存储每个规则的 TextEditingController
+  final Map<String, TextEditingController> _controllers = {};
+
+  @override
+  void dispose() {
+    // 释放所有控制器
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  // 获取或创建控制器
+  TextEditingController _getController(String key, String initialValue) {
+    if (!_controllers.containsKey(key)) {
+      _controllers[key] = TextEditingController(text: initialValue);
+    }
+    return _controllers[key]!;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -174,6 +199,32 @@ class RulesPanel extends StatelessWidget {
     );
   }
 
+  // 修改 _buildTextEditField 方法
+  Widget _buildTextEditField(Rule rule, String label, String initialValue,
+      Function(String) onChanged) {
+    // 使用规则ID和字段名称组合作为控制器的唯一键
+    final controllerKey = '${rule.id}-$label';
+    final controller = _getController(controllerKey, initialValue);
+
+    return Row(
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            style: const TextStyle(fontSize: 12),
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              border: OutlineInputBorder(),
+            ),
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildRuleItem(
       BuildContext context, AppState appState, Rule rule, int index) {
     return ExpansionTile(
@@ -231,44 +282,336 @@ class RulesPanel extends StatelessWidget {
   // 添加新的辅助方法来构建规则编辑字段
   Widget _buildRuleEditingFields(Rule rule, int index, AppState appState) {
     // 根据规则类型返回对应的编辑字段
-    if (rule is PatternRule) {
-      return _buildTextEditField(
-        '前缀内容：',
-        "rule.prefix",
-        (value) => _updateRule(index, RuleFactory.addPrefix(value), appState),
+    if (rule is PositionInsertRule) {
+      return Column(
+        children: [
+          _buildTextEditField(
+            rule,
+            '插入内容：',
+            rule.content,
+            (value) => _updateRule(
+              index,
+              PositionInsertRule(
+                name: rule.name,
+                content: value,
+                position: rule.position,
+                fromStart: rule.fromStart,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildTextEditField(
+            rule,
+            '插入位置：',
+            rule.position.toString(),
+            (value) => _updateRule(
+              index,
+              PositionInsertRule(
+                name: rule.name,
+                content: rule.content,
+                position: int.tryParse(value) ?? rule.position,
+                fromStart: rule.fromStart,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+        ],
       );
-    } else if (rule is PatternRule) {
+    } else if (rule is MarkerInsertRule) {
+      return Column(
+        children: [
+          _buildTextEditField(
+            rule,
+            '标记：',
+            rule.marker,
+            (value) => _updateRule(
+              index,
+              MarkerInsertRule(
+                name: rule.name,
+                content: rule.content,
+                marker: value,
+                before: rule.before,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildTextEditField(
+            rule,
+            '插入内容：',
+            rule.content,
+            (value) => _updateRule(
+              index,
+              MarkerInsertRule(
+                name: rule.name,
+                content: value,
+                marker: rule.marker,
+                before: rule.before,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+        ],
+      );
+    } else if (rule is MarkerDeleteRule) {
       return _buildTextEditField(
-        '后缀内容：',
-        "rule.suffix",
-        (value) => _updateRule(index, RuleFactory.addSuffix(value), appState),
+        rule,
+        '删除标记：',
+        rule.marker,
+        (value) => _updateRule(
+          index,
+          MarkerDeleteRule(
+            name: rule.name,
+            marker: value,
+          )..id = rule.id,
+          appState,
+        ),
+      );
+    } else if (rule is RangeDeleteRule) {
+      return Column(
+        children: [
+          _buildTextEditField(
+            rule,
+            '起始位置：',
+            rule.start.toString(),
+            (value) => _updateRule(
+              index,
+              RangeDeleteRule(
+                name: rule.name,
+                start: int.tryParse(value) ?? rule.start,
+                end: rule.end,
+                fromStart: rule.fromStart,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildTextEditField(
+            rule,
+            '结束位置：',
+            rule.end.toString(),
+            (value) => _updateRule(
+              index,
+              RangeDeleteRule(
+                name: rule.name,
+                start: rule.start,
+                end: int.tryParse(value) ?? rule.end,
+                fromStart: rule.fromStart,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+        ],
+      );
+    } else if (rule is CharacterTypeDeleteRule) {
+      return Text(
+        '字符类型：${rule.characterType.toString().split('.').last}',
+        style: const TextStyle(fontSize: 12),
+      );
+    } else if (rule is RangeReplaceRule) {
+      return Column(
+        children: [
+          _buildTextEditField(
+            rule,
+            '起始位置：',
+            rule.start.toString(),
+            (value) => _updateRule(
+              index,
+              RangeReplaceRule(
+                name: rule.name,
+                start: int.tryParse(value) ?? rule.start,
+                end: rule.end,
+                content: rule.content,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildTextEditField(
+            rule,
+            '结束位置：',
+            rule.end.toString(),
+            (value) => _updateRule(
+              index,
+              RangeReplaceRule(
+                name: rule.name,
+                start: rule.start,
+                end: int.tryParse(value) ?? rule.end,
+                content: rule.content,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildTextEditField(
+            rule,
+            '替换内容：',
+            rule.content,
+            (value) => _updateRule(
+              index,
+              RangeReplaceRule(
+                name: rule.name,
+                start: rule.start,
+                end: rule.end,
+                content: value,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+        ],
+      );
+    } else if (rule is MarkerReplaceRule) {
+      return Column(
+        children: [
+          _buildTextEditField(
+            rule,
+            '标记：',
+            rule.maker,
+            (value) => _updateRule(
+              index,
+              MarkerReplaceRule(
+                name: rule.name,
+                maker: value,
+                content: rule.content,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildTextEditField(
+            rule,
+            '替换内容：',
+            rule.content,
+            (value) => _updateRule(
+              index,
+              MarkerReplaceRule(
+                name: rule.name,
+                maker: rule.maker,
+                content: value,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+        ],
+      );
+    } else if (rule is CharacterTypeReplaceRule) {
+      return Column(
+        children: [
+          Text(
+            '字符类型：${rule.characterType.toString().split('.').last}',
+            style: const TextStyle(fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          _buildTextEditField(
+            rule,
+            '替换内容：',
+            rule.replacement,
+            (value) => _updateRule(
+              index,
+              CharacterTypeReplaceRule(
+                name: rule.name,
+                characterType: rule.characterType,
+                replacement: value,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+        ],
+      );
+    } else if (rule is DelimiterDeleteRule) {
+      return Column(
+        children: [
+          _buildTextEditField(
+            rule,
+            '起始分隔符：',
+            rule.startDelimiter,
+            (value) => _updateRule(
+              index,
+              DelimiterDeleteRule(
+                name: rule.name,
+                startDelimiter: value,
+                endDelimiter: rule.endDelimiter,
+                keepDelimiters: rule.keepDelimiters,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildTextEditField(
+            rule,
+            '结束分隔符：',
+            rule.endDelimiter,
+            (value) => _updateRule(
+              index,
+              DelimiterDeleteRule(
+                name: rule.name,
+                startDelimiter: rule.startDelimiter,
+                endDelimiter: value,
+                keepDelimiters: rule.keepDelimiters,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+        ],
+      );
+    } else if (rule is DelimiterReplaceRule) {
+      return Column(
+        children: [
+          _buildTextEditField(
+            rule,
+            '起始分隔符：',
+            rule.startDelimiter,
+            (value) => _updateRule(
+              index,
+              DelimiterReplaceRule(
+                name: rule.name,
+                startDelimiter: value,
+                endDelimiter: rule.endDelimiter,
+                replacement: rule.replacement,
+                keepDelimiters: rule.keepDelimiters,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildTextEditField(
+            rule,
+            '结束分隔符：',
+            rule.endDelimiter,
+            (value) => _updateRule(
+              index,
+              DelimiterReplaceRule(
+                name: rule.name,
+                startDelimiter: rule.startDelimiter,
+                endDelimiter: value,
+                replacement: rule.replacement,
+                keepDelimiters: rule.keepDelimiters,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildTextEditField(
+            rule,
+            '替换内容：',
+            rule.replacement,
+            (value) => _updateRule(
+              index,
+              DelimiterReplaceRule(
+                name: rule.name,
+                startDelimiter: rule.startDelimiter,
+                endDelimiter: rule.endDelimiter,
+                replacement: value,
+                keepDelimiters: rule.keepDelimiters,
+              )..id = rule.id,
+              appState,
+            ),
+          ),
+        ],
       );
     }
-    // 可以继续添加其他规则类型的编辑字段
     return const Text('暂不支持直接编辑此类规则');
-  }
-
-  // 添加新的辅助方法来构建文本编辑字段
-  Widget _buildTextEditField(
-      String label, String initialValue, Function(String) onChanged) {
-    return Row(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TextField(
-            controller: TextEditingController(text: initialValue),
-            style: const TextStyle(fontSize: 12),
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              border: OutlineInputBorder(),
-            ),
-            onChanged: onChanged,
-          ),
-        ),
-      ],
-    );
   }
 
   // 添加新的辅助方法来更新规则
