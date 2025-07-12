@@ -116,6 +116,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
 
   @override
   Widget build(BuildContext context) {
+    _treeController.collapseAll();
     return Card(
       margin: const EdgeInsets.all(0),
       child: Stack(
@@ -134,6 +135,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
                 Expanded(
                   child: SingleChildScrollView(
                     child: TreeView(
+                      indent: 5,
                       nodes: _buildNodes(),
                       treeController: _treeController,
                     ),
