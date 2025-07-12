@@ -126,6 +126,14 @@ packages:
       url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "2.0.28"
+  flutter_simple_treeview:
+    dependency: "direct main"
+    description:
+      name: flutter_simple_treeview
+      sha256: ad4978d2668dd078d3a09966832da111bef9102dd636e572c50c80133b7ff4d9
+      url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
+    source: hosted
+    version: "3.0.2"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -350,4 +358,4 @@ packages:
     version: "5.14.0"
 sdks:
   dart: ">=3.8.0 <4.0.0"
-  flutter: ">=3.18.0-18.0.pre.54"
+  flutter: ">=3.27.0"

@@ -16,6 +16,7 @@ class RulesPanel extends StatefulWidget {
 }
 
 class _RulesPanelState extends State<RulesPanel> {
+  bool _showAddDialog = false;
   // 存储每个规则的 TextEditingController
   final Map<String, TextEditingController> _controllers = {};
 
@@ -26,14 +27,6 @@ class _RulesPanelState extends State<RulesPanel> {
       controller.dispose();
     }
     super.dispose();
-  }
-
-  // 获取或创建控制器
-  TextEditingController _getController(String key, String initialValue) {
-    if (!_controllers.containsKey(key)) {
-      _controllers[key] = TextEditingController(text: initialValue);
-    }
-    return _controllers[key]!;
   }
 
   @override
@@ -136,17 +129,61 @@ class _RulesPanelState extends State<RulesPanel> {
                 padding: const EdgeInsets.all(8.0),
                 child: Column(
                   children: [
-                    // 规则列表区域 - 添加滚动功能
+                    // 规则列表区域
                     Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            // 规则组
-                            if (appState.rules.isNotEmpty)
-                              ..._buildRuleList(context, appState),
-                          ],
-                        ),
-                      ),
+                      child: ClipRect(
+                          child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        layoutBuilder: (Widget? currentChild,
+                            List<Widget> previousChildren) {
+                          return Stack(
+                            alignment: Alignment.topCenter,
+                            children: <Widget>[
+                              ...previousChildren,
+                              if (currentChild != null) currentChild,
+                            ],
+                          );
+                        },
+                        transitionBuilder:
+                            (Widget child, Animation<double> animation) {
+                          // 通过 child.key 判断是哪个组件
+                          final isAddDialog =
+                              child.key == const ValueKey('add_dialog');
+
+                          return SlideTransition(
+                            position: Tween<Offset>(
+                              begin: Offset(isAddDialog ? -1.0 : 1.0, 0.0),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          );
+                        },
+                        child: _showAddDialog
+                            ? AddRuleDialog(
+                                key: const ValueKey('add_dialog'),
+                                onRuleAdded: (rule) {
+                                  setState(() {
+                                    _showAddDialog = false;
+                                  });
+                                  Provider.of<AppState>(context, listen: false)
+                                      .addRule(rule);
+                                },
+                                onCancel: () {
+                                  setState(() {
+                                    _showAddDialog = false;
+                                  });
+                                },
+                              )
+                            : SingleChildScrollView(
+                                key: const ValueKey('rule_list'),
+                                child: Column(
+                                  children: [
+                                    if (appState.rules.isNotEmpty)
+                                      ..._buildRuleList(context, appState),
+                                  ],
+                                ),
+                              ),
+                      )),
                     ),
 
                     // 底部固定区域 - 只保留处理扩展名的checkbox
@@ -199,30 +236,37 @@ class _RulesPanelState extends State<RulesPanel> {
     );
   }
 
-  // 修改 _buildTextEditField 方法
-  Widget _buildTextEditField(Rule rule, String label, String initialValue,
-      Function(String) onChanged) {
-    // 使用规则ID和字段名称组合作为控制器的唯一键
-    final controllerKey = '${rule.id}-$label';
-    final controller = _getController(controllerKey, initialValue);
+  void _updateRule(int index, Rule newRule, AppState appState) {
+    appState.updateRule(index, newRule);
+  }
 
-    return Row(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            style: const TextStyle(fontSize: 12),
-            decoration: const InputDecoration(
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              border: OutlineInputBorder(),
-            ),
-            onChanged: onChanged,
-          ),
-        ),
-      ],
-    );
+  void _showAddRuleDialog(BuildContext context) {
+    setState(() {
+      _showAddDialog = true;
+    });
+  }
+
+  void _editRule(BuildContext context, Rule rule, int index) {
+    // // 编辑规则功能
+    // showDialog(
+    //   context: context,
+    //   builder: (context) => AddRuleDialog(
+    //     existingRule: rule, // 传入现有规则
+    //     onRuleAdded: (updatedRule) {
+    //       // 更新规则
+    //       Provider.of<AppState>(context, listen: false)
+    //           .updateRule(index, updatedRule);
+    //     },
+    //   ),
+    // );
+  }
+
+  List<Widget> _buildRuleList(BuildContext context, AppState appState) {
+    return appState.rules.asMap().entries.map((entry) {
+      final index = entry.key;
+      final rule = entry.value;
+      return _buildRuleItem(context, appState, rule, index);
+    }).toList();
   }
 
   Widget _buildRuleItem(
@@ -279,7 +323,6 @@ class _RulesPanelState extends State<RulesPanel> {
     );
   }
 
-  // 添加新的辅助方法来构建规则编辑字段
   Widget _buildRuleEditingFields(Rule rule, int index, AppState appState) {
     // 根据规则类型返回对应的编辑字段
     if (rule is PositionInsertRule) {
@@ -614,41 +657,29 @@ class _RulesPanelState extends State<RulesPanel> {
     return const Text('暂不支持直接编辑此类规则');
   }
 
-  // 添加新的辅助方法来更新规则
-  void _updateRule(int index, Rule newRule, AppState appState) {
-    appState.updateRule(index, newRule);
-  }
+  Widget _buildTextEditField(Rule rule, String label, String initialValue,
+      Function(String) onChanged) {
+    // 使用规则ID和字段名称组合作为控制器的唯一键
+    final controllerKey = '${rule.id}-$label';
+    final controller = _getController(controllerKey, initialValue);
 
-  void _showAddRuleDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AddRuleDialog(onRuleAdded: (rule) {
-        Provider.of<AppState>(context, listen: false).addRule(rule);
-      }),
+    return Row(
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            style: const TextStyle(fontSize: 12),
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              border: OutlineInputBorder(),
+            ),
+            onChanged: onChanged,
+          ),
+        ),
+      ],
     );
-  }
-
-  void _editRule(BuildContext context, Rule rule, int index) {
-    // 编辑规则功能
-    showDialog(
-      context: context,
-      builder: (context) => AddRuleDialog(
-        existingRule: rule, // 传入现有规则
-        onRuleAdded: (updatedRule) {
-          // 更新规则
-          Provider.of<AppState>(context, listen: false)
-              .updateRule(index, updatedRule);
-        },
-      ),
-    );
-  }
-
-  List<Widget> _buildRuleList(BuildContext context, AppState appState) {
-    return appState.rules.asMap().entries.map((entry) {
-      final index = entry.key;
-      final rule = entry.value;
-      return _buildRuleItem(context, appState, rule, index);
-    }).toList();
   }
 
   // 保存规则配置
@@ -742,5 +773,13 @@ class _RulesPanelState extends State<RulesPanel> {
         );
       }
     }
+  }
+
+  // 获取或创建控制器
+  TextEditingController _getController(String key, String initialValue) {
+    if (!_controllers.containsKey(key)) {
+      _controllers[key] = TextEditingController(text: initialValue);
+    }
+    return _controllers[key]!;
   }
 }
