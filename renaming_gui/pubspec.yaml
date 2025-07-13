@@ -9,6 +9,7 @@ environment:
   flutter: ">=1.17.0"
 
 dependencies:
+  window_manager: ^0.3.7  # 使用最新版本
   flutter:
     sdk: flutter
   flutter_simple_treeview: ^3.0.2  # 添加 TreeView 依赖
