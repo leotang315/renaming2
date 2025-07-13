@@ -4,6 +4,7 @@ import 'models/app_state.dart';
 import 'pages/main_page.dart';
 import 'utils/theme.dart';
 import 'utils/logger.dart';
+import 'utils/constants.dart';
 
 void main() async {
   // 确保Flutter绑定初始化
@@ -34,7 +35,7 @@ class MyApp extends StatelessWidget {
     AppLogger.debug('构建主应用界面');
 
     return MaterialApp(
-      title: 'renaming - 专业文件重命名工具',
+      title: AppConstants.appTitle,
       theme: AppTheme.darkTheme,
       home: const MainPage(),
       debugShowCheckedModeBanner: false,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:renaming_gui/widgets/Bottom_panel.dart';
+import '../widgets/Bottom_panel.dart';
 import '../models/app_state.dart';
 import '../widgets/rules_panel.dart';
 import '../widgets/files_panel.dart';

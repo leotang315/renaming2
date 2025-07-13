@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:renaming_gui/models/app_state.dart';
-import 'package:renaming_gui/utils/message_utils.dart';
-import 'package:renaming_gui/utils/theme.dart';
+import '../models/app_state.dart';
+import '../utils/message_utils.dart';
+import '../utils/theme.dart';
 
 class BottomPanel extends StatelessWidget {
   const BottomPanel({super.key});
