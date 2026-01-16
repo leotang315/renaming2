@@ -1,6 +1,6 @@
 import 'pattern_rule.dart';
 import 'rule.dart';
-import 'StringRegexReplace.dart';
+import 'string_regex_replace.dart';
 
 class DelimiterDeleteRule extends Rule {
   final String startDelimiter;
@@ -18,8 +18,8 @@ class DelimiterDeleteRule extends Rule {
     final escapedStartDelim = RegExp.escape(startDelimiter);
     final escapedEndDelim = RegExp.escape(endDelimiter);
     final pattern = '$escapedStartDelim[^$escapedEndDelim]*$escapedEndDelim';
-    final repalce = keepDelimiters ? '$startDelimiter$endDelimiter' : '';
-    _patternRule = PatternRule(name: name, pattern: pattern, replace: repalce);
+    final replace = keepDelimiters ? '$startDelimiter$endDelimiter' : '';
+    _patternRule = PatternRule(name: name, pattern: pattern, replace: replace);
   }
 
   @override

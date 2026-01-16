@@ -1,14 +1,14 @@
-import 'package:renaming_share/src/rules/StringRegexReplace.dart';
+import 'package:renaming_share/src/rules/string_regex_replace.dart';
 
 import 'rule.dart';
 
 class MarkerReplaceRule extends Rule {
-  final String maker;
+  final String marker;
   final String content;
 
   MarkerReplaceRule({
     required super.name,
-    required this.maker,
+    required this.marker,
     required this.content,
   }) {
     type = 'marker_replace';
@@ -16,7 +16,7 @@ class MarkerReplaceRule extends Rule {
 
   @override
   Future<String> apply(String input, {int? index}) async {
-    final regex = RegExp(maker);
+    final regex = RegExp(marker);
     return input.replaceAllWithGroups(regex, content);
   }
 
@@ -25,14 +25,14 @@ class MarkerReplaceRule extends Rule {
     'type': type,
     'id': id,
     'name': name,
-    'pattern': maker,
+    'pattern': marker,
     'content': content,
   };
 
   factory MarkerReplaceRule.fromJson(Map<String, dynamic> json) {
     return MarkerReplaceRule(
       name: json['name'] as String,
-      maker: json['marker'] as String,
+      marker: json['marker'] as String,
       content: json['content'] as String,
     )..id = json['id'] as String;
   }

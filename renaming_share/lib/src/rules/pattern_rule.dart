@@ -1,5 +1,5 @@
 import 'rule.dart';
-import 'StringRegexReplace.dart';
+import 'string_regex_replace.dart';
 
 class PatternRule implements Rule {
   @override

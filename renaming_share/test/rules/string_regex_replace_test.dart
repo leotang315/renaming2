@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:renaming_share/src/rules/StringRegexReplace.dart';
+import 'package:renaming_share/src/rules/string_regex_replace.dart';
 
 void main() {
   group('StringRegexReplace', () {
