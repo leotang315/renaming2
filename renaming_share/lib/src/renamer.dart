@@ -4,32 +4,25 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import 'models/rename_result.dart';
 import 'models/rename_status.dart';
-import 'models/rename_mode.dart';
+
 import 'rules/rule.dart';
 
 class Renamer {
   List<Rule> rules;
   List<String> fileList;
-  List<RenameResult> mappings;
-  bool dryRun;
   bool processExtension;
 
   Renamer({
     List<Rule>? rules,
     List<String>? fileList,
-    this.dryRun = false,
+
     List<RenameResult>? mappings,
     this.processExtension = false,
   }) : rules = rules ?? [],
-       fileList = fileList ?? [],
-       mappings = mappings ?? [];
+       fileList = fileList ?? [];
 
   void setProcessExtension(bool process) {
     processExtension = process;
-  }
-
-  void setDryRun(bool dryRun) {
-    this.dryRun = dryRun;
   }
 
   void addFile(String file) {
@@ -119,26 +112,17 @@ class Renamer {
     }
   }
 
-  Future<RenameResult> generateSingleMapping(String path, {int? index}) async {
+  Future<RenameResult> generateOneMapping(String path, {int? index}) async {
     var result = RenameResult(
       oldPath: path,
       newPath: '',
       status: RenameStatus.pending,
     );
-
-    if (path.isEmpty) {
-      return result.copyWith(status: RenameStatus.error, message: '文件路径为空');
-    }
-
-    final dir = p.dirname(path);
-    final srcName = p.basename(path);
-
-    if (srcName.isEmpty) {
-      return result.copyWith(status: RenameStatus.error, message: '无效的文件路径');
-    }
-
     try {
-      String processedName;
+      final dir = p.dirname(path);
+      final srcName = p.basename(path);
+      String dstName;
+
       if (!processExtension) {
         final ext = p.extension(srcName);
         var baseName = p.basenameWithoutExtension(srcName);
@@ -146,107 +130,98 @@ class Renamer {
         for (final rule in rules) {
           baseName = await rule.apply(baseName, index: index);
         }
-        processedName = '$baseName$ext';
+        dstName = '$baseName$ext';
       } else {
-        processedName = srcName;
+        dstName = srcName;
         for (final rule in rules) {
-          processedName = await rule.apply(processedName, index: index);
+          dstName = await rule.apply(dstName, index: index);
         }
       }
-
-      return result.copyWith(
-        newPath: p.join(dir, processedName),
-        status: RenameStatus.success,
-      );
+      return result.copyWith(newPath: p.join(dir, dstName));
     } catch (e) {
-      return result.copyWith(status: RenameStatus.error, message: e.toString());
+      return result.copyWith(newPath: "");
     }
   }
 
-  Future<List<RenameResult>> generateMapping() async {
-    mappings = await Future.wait(
+  Future<List<RenameResult>> generateAllMapping() async {
+    List<RenameResult> mappings = await Future.wait(
       fileList.asMap().entries.map(
-            (entry) => generateSingleMapping(entry.value, index: entry.key + 1),
-          ),
+        (entry) => generateOneMapping(entry.value, index: entry.key + 1),
+      ),
     );
     return mappings;
   }
 
-  Future<List<RenameResult>> applyMapping(
-    List<RenameResult> mappings, [
-    RenameMode mode = RenameMode.normal,
-  ]) async {
-    // 执行实际重命名操作
-    final results = List<RenameResult>.from(mappings);
-
-    for (var i = 0; i < results.length; i++) {
-      var mapping = results[i];
-
-      switch (mode) {
-        case RenameMode.normal:
-          if (mapping.status == RenameStatus.error) {
-            continue;
-          }
-          break;
-        case RenameMode.error:
-          if (mapping.status != RenameStatus.error) {
-            continue;
-          }
-          break;
-        case RenameMode.undo:
-          // 执行回退操作，交换新旧路径
-          final oldPath = mapping.oldPath;
-          mapping = mapping.copyWith(
-            oldPath: mapping.newPath,
-            newPath: oldPath,
-          );
-          break;
-      }
-
-      // 检查路径有效性
-      if (mapping.oldPath.isEmpty || mapping.newPath.isEmpty) {
-        results[i] = mapping.copyWith(
-          status: RenameStatus.error,
-          message: '无效的文件路径',
-        );
-        continue;
-      }
-
-      // 如果新旧路径相同，标记为成功并跳过
-      if (mapping.oldPath == mapping.newPath) {
-        results[i] = mapping.copyWith(status: RenameStatus.success);
-        continue;
-      }
-
-      try {
-        final srcFile = File(mapping.oldPath);
-        await srcFile.rename(mapping.newPath);
-        results[i] = mapping.copyWith(status: RenameStatus.success);
-      } catch (e) {
-        results[i] = mapping.copyWith(
-          status: RenameStatus.error,
-          message: '重命名失败: $e',
-        );
-      }
-    }
-
-    return results;
-  }
-
-  Future<List<RenameResult>> applyBatch() async {
-    // 生成映射
-    mappings = await generateMapping();
-
-    // 如果是预览模式，直接返回映射结果
-    if (dryRun) {
-      return mappings;
-    }
-
-    List<RenameResult> results = await applyMapping(
-      mappings,
-      RenameMode.normal,
+  Future<RenameResult> rename(String src, String dst) async {
+    var result = RenameResult(
+      oldPath: src,
+      newPath: dst,
+      status: RenameStatus.pending,
     );
 
-    return results;
+    try {
+      if (src.isEmpty || dst.isEmpty) {
+        return result.copyWith(status: RenameStatus.error, message: '文件路径为空');
+      }
+
+      if (!await File(src).exists()) {
+        return result.copyWith(status: RenameStatus.error, message: '源文件不存在');
+      }
+
+      if (await File(dst).exists()) {
+        return result.copyWith(status: RenameStatus.error, message: '目标文件已存在');
+      }
+
+      if (src == dst) {
+        return result.copyWith(status: RenameStatus.success);
+      }
+
+      await File(src).rename(dst);
+      result.status = RenameStatus.success;
+    } catch (e) {
+      result.status = RenameStatus.error;
+      result.message = '重命名失败: $e';
+    }
+    return result;
+  }
+
+  Future<List<RenameResult>> preview() {
+    return generateAllMapping();
+  }
+
+  Future<List<RenameResult>> execute(List<RenameResult> mappings) async {
+    for (var item in mappings) {
+      var result = await rename(item.oldPath, item.newPath);
+      item.status = result.status;
+      item.message = result.message;
+    }
+    return mappings;
+  }
+
+  Future<List<RenameResult>> retryFailed(
+    List<RenameResult> previousResults,
+  ) async {
+    for (var item in previousResults) {
+      if (item.status == RenameStatus.error) {
+        var result = await rename(item.oldPath, item.newPath);
+        item.status = result.status;
+        item.message = result.message;
+      }
+    }
+    return previousResults;
+  }
+
+  Future<List<RenameResult>> undo(List<RenameResult> previousResults) async {
+    for (var item in previousResults) {
+      if (item.status == RenameStatus.success) {
+        var result = await rename(item.newPath, item.oldPath);
+        if (result.status == RenameStatus.success) {
+          item.status = RenameStatus.pending;
+        } else {
+          item.message = "Undo failed: ${result.message}";
+        }
+      }
+    }
+    return previousResults;
   }
 }

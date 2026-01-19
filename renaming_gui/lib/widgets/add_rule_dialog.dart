@@ -197,8 +197,8 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
               name: 'range_replace', start: 0, end: 1, content: '');
           break;
         case 'marker_replace':
-          rule =
-              MarkerReplaceRule(name: 'marker_replace', maker: '', content: '');
+          rule = MarkerReplaceRule(
+              name: 'marker_replace', marker: '', content: '');
           break;
         case 'character_type_replace':
           rule = CharacterTypeReplaceRule(

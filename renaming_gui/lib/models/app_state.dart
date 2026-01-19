@@ -249,11 +249,8 @@ class AppState extends ChangeNotifier {
     // 设置不处理扩展名（保持原有逻辑）
     _renamer.setProcessExtension(_processExtension);
 
-    // 设置是否为预览模式
-    _renamer.setDryRun(true);
-
     // 使用 applyBatch 批量处理
-    final results = await _renamer.applyBatch();
+    final results = await _renamer.preview();
 
     // 更新文件状态
     for (int i = 0; i < _files.length && i < results.length; i++) {
@@ -280,7 +277,7 @@ class AppState extends ChangeNotifier {
               newPath: f.dstPath,
             ))
         .toList();
-    final results = await renamer.applyMapping(mapping, RenameMode.normal);
+    final results = await renamer.execute(mapping);
 
     // 更新文件状态和路径
     for (int i = 0; i < selectedFiles.length && i < results.length; i++) {

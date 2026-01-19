@@ -510,12 +510,12 @@ class _RulesPanelState extends State<RulesPanel> {
           _buildTextEditField(
             rule,
             '标记：',
-            rule.maker,
+            rule.marker,
             (value) => _updateRule(
               index,
               MarkerReplaceRule(
                 name: rule.name,
-                maker: value,
+                marker: value,
                 content: rule.content,
               )..id = rule.id,
               appState,
@@ -530,7 +530,7 @@ class _RulesPanelState extends State<RulesPanel> {
               index,
               MarkerReplaceRule(
                 name: rule.name,
-                maker: rule.maker,
+                marker: rule.marker,
                 content: value,
               )..id = rule.id,
               appState,
