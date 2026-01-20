@@ -44,10 +44,52 @@ class BottomPanel extends StatelessWidget {
                   ),
                 ),
               ],
+              if (appState.isProcessing) ...[
+                const SizedBox(width: 16),
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    value: appState.processingTotal > 0
+                        ? appState.processingProgress
+                        : null,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  appState.processingLabel,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.textMutedColor,
+                  ),
+                ),
+                if (appState.processingTotal > 0) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    '${appState.processingCurrent}/${appState.processingTotal}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textMutedColor,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 120,
+                    child: LinearProgressIndicator(
+                      value: appState.processingProgress,
+                      color: AppTheme.primaryColor,
+                      backgroundColor: AppTheme.borderColor,
+                      minHeight: 6,
+                    ),
+                  ),
+                ],
+              ],
               const Spacer(),
               // 执行按钮
               ElevatedButton(
-                onPressed: appState.canExecute
+                onPressed: appState.canExecute && !appState.isProcessing
                     ? () => _executeRename(context, appState)
                     : null,
                 style: ElevatedButton.styleFrom(

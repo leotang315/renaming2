@@ -85,6 +85,10 @@ class AppState extends ChangeNotifier {
 
   bool _selectAll = false;
   bool _processExtension = false; // 添加这个属性
+  bool _isProcessing = false;
+  String _processingLabel = '';
+  int _processingCurrent = 0;
+  int _processingTotal = 0;
 
   // Getters
   List<FileItem> get files => List.unmodifiable(_files);
@@ -94,6 +98,12 @@ class AppState extends ChangeNotifier {
       _files.any((f) => f.isSelected) && enabledRuleCount > 0;
   bool get selectAll => _selectAll;
   bool get processExtension => _processExtension; // 添加getter
+  bool get isProcessing => _isProcessing;
+  String get processingLabel => _processingLabel;
+  int get processingCurrent => _processingCurrent;
+  int get processingTotal => _processingTotal;
+  double get processingProgress =>
+      _processingTotal == 0 ? 0 : _processingCurrent / _processingTotal;
 
   int get selectedCount => _files.where((f) => f.isSelected).length;
   int get totalCount => _files.length;
@@ -279,32 +289,40 @@ class AppState extends ChangeNotifier {
 
   // 预览和执行重命名
   Future<void> executePreviews() async {
-    // 清空并重新添加规则
-    _renamer.clearRules();
-    for (final rule in _rules) {
-      _ensureRuleId(rule);
-      if (isRuleEnabled(rule)) {
-        _renamer.addRule(rule);
+    _startProcessing('预览中', _files.length);
+    try {
+      _renamer.clearRules();
+      for (final rule in _rules) {
+        _ensureRuleId(rule);
+        if (isRuleEnabled(rule)) {
+          _renamer.addRule(rule);
+        }
       }
-    }
 
-    // 清空并重新添加文件
-    _renamer.clearFiles();
-    _renamer.addFiles(_files.map((f) => f.srcPath).toList());
+      _renamer.clearFiles();
+      _renamer.addFiles(_files.map((f) => f.srcPath).toList());
+      _renamer.setProcessExtension(_processExtension);
 
-    // 设置不处理扩展名（保持原有逻辑）
-    _renamer.setProcessExtension(_processExtension);
+      final results = <RenameResult>[];
+      for (int i = 0; i < _files.length; i++) {
+        final result = await _renamer.generateOneMapping(
+          _files[i].srcPath,
+          index: i + 1,
+        );
+        results.add(result);
+        _setProcessingCurrent(i + 1);
+      }
 
-    // 使用 applyBatch 批量处理
-    final results = await _renamer.preview();
-
-    // 更新文件状态
-    for (int i = 0; i < _files.length && i < results.length; i++) {
-      final file = _files[i];
-      final result = results[i];
-      file.dstPath = result.newPath;
-      file.status = RenameStatus.pending;
-      file.message = result.message;
+      for (int i = 0; i < _files.length && i < results.length; i++) {
+        final file = _files[i];
+        final result = results[i];
+        file.dstPath = result.newPath;
+        file.status = RenameStatus.pending;
+        file.message = result.message;
+      }
+    } finally {
+      // await Future.delayed(Duration(milliseconds: 1000));
+      _endProcessing();
     }
   }
 
@@ -314,29 +332,22 @@ class AppState extends ChangeNotifier {
     if (selectedFiles.isEmpty) {
       return;
     }
-
-    Renamer renamer = Renamer();
-    // 生成文件路径映射
-    final mapping = selectedFiles
-        .map((f) => RenameResult(
-              oldPath: f.srcPath,
-              newPath: f.dstPath,
-            ))
-        .toList();
-    final results = await renamer.execute(mapping);
-
-    // 更新文件状态和路径
-    for (int i = 0; i < selectedFiles.length && i < results.length; i++) {
-      final file = selectedFiles[i];
-      final result = results[i];
-      file.srcPath = result.newPath;
-      file.srcName = path.basename(result.newPath);
-      file.dstPath = result.newPath;
-      file.status = result.status;
-      file.message = result.message;
+    _startProcessing('重命名中', selectedFiles.length);
+    try {
+      Renamer renamer = Renamer();
+      for (int i = 0; i < selectedFiles.length; i++) {
+        final file = selectedFiles[i];
+        final result = await renamer.rename(file.srcPath, file.dstPath);
+        file.srcPath = result.newPath;
+        file.srcName = path.basename(result.newPath);
+        file.dstPath = result.newPath;
+        file.status = result.status;
+        file.message = result.message;
+        _setProcessingCurrent(i + 1);
+      }
+    } finally {
+      _endProcessing();
     }
-
-    notifyListeners();
   }
 
   // 添加设置processExtension的方法
@@ -359,5 +370,29 @@ class AppState extends ChangeNotifier {
     if (rule.id.isEmpty) {
       rule.id = UniqueKey().toString();
     }
+  }
+
+  void _startProcessing(String label, int total) {
+    _isProcessing = true;
+    _processingLabel = label;
+    _processingCurrent = 0;
+    _processingTotal = total;
+    notifyListeners();
+  }
+
+  void _setProcessingCurrent(int current) {
+    if (!_isProcessing) {
+      return;
+    }
+    _processingCurrent = current;
+    notifyListeners();
+  }
+
+  void _endProcessing() {
+    _isProcessing = false;
+    _processingLabel = '';
+    _processingCurrent = 0;
+    _processingTotal = 0;
+    notifyListeners();
   }
 }
