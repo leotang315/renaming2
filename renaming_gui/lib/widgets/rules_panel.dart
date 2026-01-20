@@ -16,13 +16,11 @@ class RulesPanel extends StatefulWidget {
 }
 
 class _RulesPanelState extends State<RulesPanel> {
-  bool _showAddDialog = false;
-  // 存储每个规则的 TextEditingController
   final Map<String, TextEditingController> _controllers = {};
+  final Set<String> _expandedRuleIds = {};
 
   @override
   void dispose() {
-    // 释放所有控制器
     for (var controller in _controllers.values) {
       controller.dispose();
     }
@@ -33,15 +31,13 @@ class _RulesPanelState extends State<RulesPanel> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // 面板头部
+        // Header
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           height: 48,
           decoration: const BoxDecoration(
             color: AppTheme.headerColor,
-            border: Border(
-              bottom: BorderSide(color: AppTheme.borderColor),
-            ),
+            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
           ),
           child: Consumer<AppState>(
             builder: (context, appState, child) {
@@ -49,189 +45,706 @@ class _RulesPanelState extends State<RulesPanel> {
                 children: [
                   const Icon(Icons.rule, color: AppTheme.textColor, size: 16),
                   const SizedBox(width: 8),
-                  Text(
-                    '规则',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  Text('规则', style: Theme.of(context).textTheme.titleMedium),
                   const Spacer(),
-                  // 添加规则按钮
-                  Tooltip(
-                    message: '添加规则',
-                    child: IconButton(
-                      onPressed: () => _showAddRuleDialog(context),
-                      icon: const Icon(Icons.add_circle_outline, size: 18),
-                      color: AppTheme.textColor,
-                      padding: const EdgeInsets.all(4),
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppTheme.successColor.withOpacity(0.1),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
+                  _buildHeaderIconButton(
+                    icon: Icons.add,
+                    tooltip: 'Add Rule',
+                    onPressed: () => _showAddRuleDialog(context, appState),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildHeaderIconButton(
+                    icon: Icons.upload,
+                    tooltip: 'Save Config',
+                    onPressed: () => _saveRulesConfig(context, appState),
                   ),
                   const SizedBox(width: 4),
-                  // 保存配置按钮
-                  Tooltip(
-                    message: '保存配置',
-                    child: IconButton(
-                      onPressed: () => _saveRulesConfig(context, appState),
-                      icon: const Icon(Icons.upload, size: 18),
-                      color: AppTheme.textColor,
-                      padding: const EdgeInsets.all(4),
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppTheme.warningColor.withOpacity(0.1),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  // 加载配置按钮
-                  Tooltip(
-                    message: '加载配置',
-                    child: IconButton(
-                      onPressed: () => _loadRulesConfig(context, appState),
-                      icon: const Icon(Icons.download, size: 18),
-                      color: AppTheme.textColor,
-                      padding: const EdgeInsets.all(4),
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppTheme.warningColor.withOpacity(0.1),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
+                  _buildHeaderIconButton(
+                    icon: Icons.download,
+                    tooltip: 'Load Config',
+                    onPressed: () => _loadRulesConfig(context, appState),
                   ),
                 ],
               );
             },
           ),
         ),
-        // 规则内容
+
+        // Body
         Expanded(
           child: Consumer<AppState>(
             builder: (context, appState, child) {
-              return Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  children: [
-                    // 规则列表区域
-                    Expanded(
-                      child: ClipRect(
-                          child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        layoutBuilder: (Widget? currentChild,
-                            List<Widget> previousChildren) {
-                          return Stack(
-                            alignment: Alignment.topCenter,
-                            children: <Widget>[
-                              ...previousChildren,
-                              if (currentChild != null) currentChild,
-                            ],
-                          );
-                        },
-                        transitionBuilder:
-                            (Widget child, Animation<double> animation) {
-                          // 通过 child.key 判断是哪个组件
-                          final isAddDialog =
-                              child.key == const ValueKey('add_dialog');
-
-                          return SlideTransition(
-                            position: Tween<Offset>(
-                              begin: Offset(isAddDialog ? -1.0 : 1.0, 0.0),
-                              end: Offset.zero,
-                            ).animate(animation),
+              return appState.rules.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No rules added yet',
+                        style: TextStyle(color: AppTheme.textMutedColor),
+                      ),
+                    )
+                  : ReorderableListView.builder(
+                      padding: const EdgeInsets.all(8),
+                      itemCount: appState.rules.length,
+                      buildDefaultDragHandles: false,
+                      onReorder: (oldIndex, newIndex) {
+                        appState.reorderRules(oldIndex, newIndex);
+                      },
+                      proxyDecorator: (child, index, animation) {
+                        return Material(
+                          color: Colors.transparent,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppTheme.panelColor,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                )
+                              ],
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                             child: child,
-                          );
-                        },
-                        child: _showAddDialog
-                            ? AddRuleDialog(
-                                key: const ValueKey('add_dialog'),
-                                onRuleAdded: (rule) {
-                                  setState(() {
-                                    _showAddDialog = false;
-                                  });
-                                  Provider.of<AppState>(context, listen: false)
-                                      .addRule(rule);
-                                },
-                                onCancel: () {
-                                  setState(() {
-                                    _showAddDialog = false;
-                                  });
-                                },
-                              )
-                            : SingleChildScrollView(
-                                key: const ValueKey('rule_list'),
-                                child: Column(
-                                  children: [
-                                    if (appState.rules.isNotEmpty)
-                                      ..._buildRuleList(context, appState),
-                                  ],
-                                ),
-                              ),
-                      )),
-                    ),
-
-                    // 底部固定区域 - 只保留处理扩展名的checkbox
-                    Column(
-                      children: [
-                        // 添加处理扩展名的checkbox
-                        Container(
-                          height: 32,
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.headerColor,
-                            borderRadius: BorderRadius.circular(3),
                           ),
-                          child: Row(
-                            children: [
-                              const Spacer(),
-                              Checkbox(
-                                value: appState.processExtension,
-                                onChanged: (value) {
-                                  appState.setProcessExtension(value ?? false);
-                                },
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              const SizedBox(width: 8),
-                              const Tooltip(
-                                message: '勾选后，重命名规则将应用到文件扩展名部分',
-                                child: Text(
-                                  '处理文件扩展名',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.textColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
+                        );
+                      },
+                      itemBuilder: (context, index) {
+                        final rule = appState.rules[index];
+                        return _buildRuleCard(context, appState, rule, index);
+                      },
+                    );
             },
           ),
         ),
+
+        // Footer (Extension Checkbox)
+        Consumer<AppState>(
+          builder: (context, appState, child) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: const BoxDecoration(
+                color: AppTheme.headerColor,
+                border: Border(top: BorderSide(color: AppTheme.borderColor)),
+              ),
+              child: Row(
+                children: [
+                  const Spacer(),
+                  SizedBox(
+                    height: 24,
+                    child: Checkbox(
+                      value: appState.processExtension,
+                      onChanged: (value) =>
+                          appState.setProcessExtension(value ?? false),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Process Extension',
+                    style: TextStyle(color: AppTheme.textColor, fontSize: 12),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 14),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        minimumSize: const Size(0, 32),
+      ),
+    );
+  }
+
+  Widget _buildHeaderIconButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        color: AppTheme.textColor,
+        padding: const EdgeInsets.all(4),
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        style: IconButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRuleCard(
+      BuildContext context, AppState appState, Rule rule, int index) {
+    final isExpanded = _expandedRuleIds.contains(rule.id);
+
+    return Container(
+      key: ValueKey(rule.id),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.panelColor,
+        border: Border.all(
+          color: isExpanded ? AppTheme.primaryColor : AppTheme.borderColor,
+        ),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        children: [
+          // Card Header
+          ReorderableDragStartListener(
+            index: index,
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  if (isExpanded) {
+                    _expandedRuleIds.remove(rule.id);
+                  } else {
+                    _expandedRuleIds.add(rule.id);
+                  }
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    const Icon(Icons.drag_indicator,
+                        color: Colors.grey, size: 16),
+                    const SizedBox(width: 12),
+                    _buildRuleIcon(rule),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _getRuleTitle(rule),
+                            style: const TextStyle(
+                              color: AppTheme.textColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _getRuleSummary(rule),
+                            style: TextStyle(
+                              color: AppTheme.textMutedColor,
+                              fontSize: 11,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline,
+                          size: 16, color: AppTheme.errorColor),
+                      onPressed: () => appState.removeRule(index),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Expanded Content (Editing)
+          if (isExpanded)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                color:
+                    Color(0xFF2A2A2C), // Slightly lighter/darker bg for editing
+                border: Border(top: BorderSide(color: AppTheme.borderColor)),
+              ),
+              child: _buildRuleEditingFields(rule, index, appState),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRuleIcon(Rule rule) {
+    IconData icon;
+    Color color;
+    Color bg;
+
+    if (rule.type.contains('insert')) {
+      icon = Icons.add;
+      color = AppTheme.successColor;
+      bg = AppTheme.successColor.withOpacity(0.1);
+    } else if (rule.type.contains('delete')) {
+      icon = Icons.remove;
+      color = AppTheme.errorColor;
+      bg = AppTheme.errorColor.withOpacity(0.1);
+    } else if (rule.type.contains('replace')) {
+      icon = Icons.sync;
+      color = AppTheme.primaryColor;
+      bg = AppTheme.primaryColor.withOpacity(0.1);
+    } else {
+      icon = Icons.code;
+      color = Colors.orange;
+      bg = Colors.orange.withOpacity(0.1);
+    }
+
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Icon(icon, size: 16, color: color),
+    );
+  }
+
+  String _getRuleTitle(Rule rule) {
+    // Convert snake_case to Title Case
+    return rule.name
+        .split('_')
+        .map((word) => word.isNotEmpty
+            ? '${word[0].toUpperCase()}${word.substring(1)}'
+            : '')
+        .join(' ');
+  }
+
+  String _getRuleSummary(Rule rule) {
+    if (rule is PositionInsertRule) {
+      return 'Insert "${rule.content}" at index ${rule.position}';
+    } else if (rule is MarkerInsertRule) {
+      return 'Insert "${rule.content}" ${rule.before ? 'before' : 'after'} "${rule.marker}"';
+    } else if (rule is RangeDeleteRule) {
+      return 'Delete from ${rule.start} to ${rule.end}';
+    } else if (rule is PatternRule) {
+      return 'Regex: ${rule.pattern} -> ${rule.replace}';
+    }
+    return rule.type;
+  }
+
+  Widget _buildRuleEditingFields(Rule rule, int index, AppState appState) {
+    if (rule is PositionInsertRule) {
+      return Column(
+        children: [
+          _buildTextField(
+              rule,
+              '插入内容',
+              rule.content,
+              (v) => _updateRule(
+                  index,
+                  PositionInsertRule(
+                      name: rule.name,
+                      content: v,
+                      position: rule.position,
+                      fromStart: rule.fromStart)
+                    ..id = rule.id,
+                  appState)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildTextField(
+                    rule,
+                    '插入位置',
+                    rule.position.toString(),
+                    (v) => _updateRule(
+                        index,
+                        PositionInsertRule(
+                            name: rule.name,
+                            content: rule.content,
+                            position: int.tryParse(v) ?? 0,
+                            fromStart: rule.fromStart)
+                          ..id = rule.id,
+                        appState),
+                    isNumber: true),
+              ),
+              const SizedBox(width: 12),
+              _buildSwitch(
+                  '从开头',
+                  rule.fromStart,
+                  (v) => _updateRule(
+                      index,
+                      PositionInsertRule(
+                          name: rule.name,
+                          content: rule.content,
+                          position: rule.position,
+                          fromStart: v)
+                        ..id = rule.id,
+                      appState)),
+            ],
+          ),
+        ],
+      );
+    } else if (rule is MarkerInsertRule) {
+      return Column(
+        children: [
+          _buildTextField(
+              rule,
+              '标记',
+              rule.marker,
+              (v) => _updateRule(
+                  index,
+                  MarkerInsertRule(
+                      name: rule.name,
+                      content: rule.content,
+                      marker: v,
+                      before: rule.before)
+                    ..id = rule.id,
+                  appState)),
+          const SizedBox(height: 8),
+          _buildTextField(
+              rule,
+              '插入内容',
+              rule.content,
+              (v) => _updateRule(
+                  index,
+                  MarkerInsertRule(
+                      name: rule.name,
+                      content: v,
+                      marker: rule.marker,
+                      before: rule.before)
+                    ..id = rule.id,
+                  appState)),
+          const SizedBox(height: 8),
+          _buildSwitch(
+              '在标记前插入',
+              rule.before,
+              (v) => _updateRule(
+                  index,
+                  MarkerInsertRule(
+                      name: rule.name,
+                      content: rule.content,
+                      marker: rule.marker,
+                      before: v)
+                    ..id = rule.id,
+                  appState)),
+        ],
+      );
+    } else if (rule is MarkerDeleteRule) {
+      return _buildTextField(
+          rule,
+          '删除标记',
+          rule.marker,
+          (v) => _updateRule(
+              index,
+              MarkerDeleteRule(name: rule.name, marker: v)..id = rule.id,
+              appState));
+    } else if (rule is RangeDeleteRule) {
+      return Row(
+        children: [
+          Expanded(
+            child: _buildTextField(
+                rule,
+                '起始位置',
+                rule.start.toString(),
+                (v) => _updateRule(
+                    index,
+                    RangeDeleteRule(
+                        name: rule.name,
+                        start: int.tryParse(v) ?? 0,
+                        end: rule.end,
+                        fromStart: rule.fromStart)
+                      ..id = rule.id,
+                    appState),
+                isNumber: true),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildTextField(
+                rule,
+                '结束位置',
+                rule.end.toString(),
+                (v) => _updateRule(
+                    index,
+                    RangeDeleteRule(
+                        name: rule.name,
+                        start: rule.start,
+                        end: int.tryParse(v) ?? 0,
+                        fromStart: rule.fromStart)
+                      ..id = rule.id,
+                    appState),
+                isNumber: true),
+          ),
+        ],
+      );
+    } else if (rule is RangeReplaceRule) {
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildTextField(
+                    rule,
+                    '起始位置',
+                    rule.start.toString(),
+                    (v) => _updateRule(
+                        index,
+                        RangeReplaceRule(
+                            name: rule.name,
+                            start: int.tryParse(v) ?? 0,
+                            end: rule.end,
+                            content: rule.content)
+                          ..id = rule.id,
+                        appState),
+                    isNumber: true),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildTextField(
+                    rule,
+                    '结束位置',
+                    rule.end.toString(),
+                    (v) => _updateRule(
+                        index,
+                        RangeReplaceRule(
+                            name: rule.name,
+                            start: rule.start,
+                            end: int.tryParse(v) ?? 0,
+                            content: rule.content)
+                          ..id = rule.id,
+                        appState),
+                    isNumber: true),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildTextField(
+              rule,
+              '替换内容',
+              rule.content,
+              (v) => _updateRule(
+                  index,
+                  RangeReplaceRule(
+                      name: rule.name,
+                      start: rule.start,
+                      end: rule.end,
+                      content: v)
+                    ..id = rule.id,
+                  appState)),
+        ],
+      );
+    } else if (rule is PatternRule) {
+      return Column(
+        children: [
+          _buildTextField(
+              rule,
+              '正则表达式',
+              rule.pattern,
+              (v) => _updateRule(
+                  index,
+                  PatternRule(
+                      name: rule.name, pattern: v, replace: rule.replace)
+                    ..id = rule.id,
+                  appState)),
+          const SizedBox(height: 8),
+          _buildTextField(
+              rule,
+              '替换内容',
+              rule.replace,
+              (v) => _updateRule(
+                  index,
+                  PatternRule(
+                      name: rule.name, pattern: rule.pattern, replace: v)
+                    ..id = rule.id,
+                  appState)),
+        ],
+      );
+    } else if (rule is DelimiterDeleteRule) {
+      return Row(
+        children: [
+          Expanded(
+              child: _buildTextField(
+                  rule,
+                  '起始分隔符',
+                  rule.startDelimiter,
+                  (v) => _updateRule(
+                      index,
+                      DelimiterDeleteRule(
+                          name: rule.name,
+                          startDelimiter: v,
+                          endDelimiter: rule.endDelimiter,
+                          keepDelimiters: rule.keepDelimiters)
+                        ..id = rule.id,
+                      appState))),
+          const SizedBox(width: 12),
+          Expanded(
+              child: _buildTextField(
+                  rule,
+                  '结束分隔符',
+                  rule.endDelimiter,
+                  (v) => _updateRule(
+                      index,
+                      DelimiterDeleteRule(
+                          name: rule.name,
+                          startDelimiter: rule.startDelimiter,
+                          endDelimiter: v,
+                          keepDelimiters: rule.keepDelimiters)
+                        ..id = rule.id,
+                      appState))),
+        ],
+      );
+    } else if (rule is DelimiterReplaceRule) {
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                  child: _buildTextField(
+                      rule,
+                      '起始分隔符',
+                      rule.startDelimiter,
+                      (v) => _updateRule(
+                          index,
+                          DelimiterReplaceRule(
+                              name: rule.name,
+                              startDelimiter: v,
+                              endDelimiter: rule.endDelimiter,
+                              replacement: rule.replacement,
+                              keepDelimiters: rule.keepDelimiters)
+                            ..id = rule.id,
+                          appState))),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _buildTextField(
+                      rule,
+                      '结束分隔符',
+                      rule.endDelimiter,
+                      (v) => _updateRule(
+                          index,
+                          DelimiterReplaceRule(
+                              name: rule.name,
+                              startDelimiter: rule.startDelimiter,
+                              endDelimiter: v,
+                              replacement: rule.replacement,
+                              keepDelimiters: rule.keepDelimiters)
+                            ..id = rule.id,
+                          appState))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildTextField(
+              rule,
+              '替换内容',
+              rule.replacement,
+              (v) => _updateRule(
+                  index,
+                  DelimiterReplaceRule(
+                      name: rule.name,
+                      startDelimiter: rule.startDelimiter,
+                      endDelimiter: rule.endDelimiter,
+                      replacement: v,
+                      keepDelimiters: rule.keepDelimiters)
+                    ..id = rule.id,
+                  appState)),
+        ],
+      );
+    } else if (rule is CharacterTypeDeleteRule) {
+      return const Text('字符类型删除暂不支持编辑',
+          style: TextStyle(color: AppTheme.textMutedColor));
+    } else if (rule is CharacterTypeReplaceRule) {
+      return _buildTextField(
+          rule,
+          '替换内容',
+          rule.replacement,
+          (v) => _updateRule(
+              index,
+              CharacterTypeReplaceRule(
+                  name: rule.name,
+                  characterType: rule.characterType,
+                  replacement: v)
+                ..id = rule.id,
+              appState));
+    } else if (rule is MarkerReplaceRule) {
+      return Column(
+        children: [
+          _buildTextField(
+              rule,
+              '标记',
+              rule.marker,
+              (v) => _updateRule(
+                  index,
+                  MarkerReplaceRule(
+                      name: rule.name, marker: v, content: rule.content)
+                    ..id = rule.id,
+                  appState)),
+          const SizedBox(height: 8),
+          _buildTextField(
+              rule,
+              '替换内容',
+              rule.content,
+              (v) => _updateRule(
+                  index,
+                  MarkerReplaceRule(
+                      name: rule.name, marker: rule.marker, content: v)
+                    ..id = rule.id,
+                  appState)),
+        ],
+      );
+    }
+
+    return const Text('此规则暂不支持编辑',
+        style: TextStyle(color: AppTheme.textMutedColor));
+  }
+
+  Widget _buildTextField(
+      Rule rule, String label, String value, Function(String) onChanged,
+      {bool isNumber = false}) {
+    final controllerKey = '${rule.id}-$label';
+    final controller = _getController(controllerKey, value);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style:
+                const TextStyle(color: AppTheme.textMutedColor, fontSize: 11)),
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller,
+          onChanged: onChanged,
+          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          style: const TextStyle(fontSize: 13, color: AppTheme.textColor),
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            border: OutlineInputBorder(),
+            enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: AppTheme.borderColor)),
+            focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: AppTheme.primaryColor)),
+            fillColor: AppTheme.backgroundColor,
+            filled: true,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSwitch(String label, bool value, Function(bool) onChanged) {
+    return Row(
+      children: [
+        Switch(
+          value: value,
+          onChanged: onChanged,
+          activeColor: AppTheme.primaryColor,
+        ),
+        Text(label, style: const TextStyle(fontSize: 12)),
       ],
     );
   }
@@ -240,449 +753,33 @@ class _RulesPanelState extends State<RulesPanel> {
     appState.updateRule(index, newRule);
   }
 
-  void _showAddRuleDialog(BuildContext context) {
-    setState(() {
-      _showAddDialog = true;
-    });
-  }
-
-  void _editRule(BuildContext context, Rule rule, int index) {
-    // // 编辑规则功能
-    // showDialog(
-    //   context: context,
-    //   builder: (context) => AddRuleDialog(
-    //     existingRule: rule, // 传入现有规则
-    //     onRuleAdded: (updatedRule) {
-    //       // 更新规则
-    //       Provider.of<AppState>(context, listen: false)
-    //           .updateRule(index, updatedRule);
-    //     },
-    //   ),
-    // );
-  }
-
-  List<Widget> _buildRuleList(BuildContext context, AppState appState) {
-    return appState.rules.asMap().entries.map((entry) {
-      final index = entry.key;
-      final rule = entry.value;
-      return _buildRuleItem(context, appState, rule, index);
-    }).toList();
-  }
-
-  Widget _buildRuleItem(
-      BuildContext context, AppState appState, Rule rule, int index) {
-    return ExpansionTile(
-      title: Text(
-        appState.getRuleDescription(rule),
-        style: const TextStyle(
-          color: AppTheme.textColor,
-          fontSize: 12,
-        ),
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.blue),
-      ),
-      collapsedShape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey),
-      ),
-      controlAffinity: ListTileControlAffinity.leading,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          InkWell(
-            onTap: () => _editRule(context, rule, index),
-            child: const Padding(
-              padding: EdgeInsets.all(2),
-              child: Icon(Icons.edit, size: 14, color: AppTheme.textColor),
-            ),
+  void _showAddRuleDialog(BuildContext context, AppState appState) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: AddRuleDialog(
+            onRuleAdded: (rule) {
+              Navigator.of(dialogContext).pop();
+              appState.addRule(rule);
+            },
+            onCancel: () => Navigator.of(dialogContext).pop(),
           ),
-          const SizedBox(width: 4),
-          InkWell(
-            onTap: () => appState.removeRule(index),
-            child: const Padding(
-              padding: EdgeInsets.all(2),
-              child: Icon(Icons.delete, size: 14, color: AppTheme.errorColor),
-            ),
-          ),
-        ],
-      ),
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 根据规则类型显示不同的编辑界面
-              _buildRuleEditingFields(rule, index, appState),
-            ],
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildRuleEditingFields(Rule rule, int index, AppState appState) {
-    // 根据规则类型返回对应的编辑字段
-    if (rule is PositionInsertRule) {
-      return Column(
-        children: [
-          _buildTextEditField(
-            rule,
-            '插入内容：',
-            rule.content,
-            (value) => _updateRule(
-              index,
-              PositionInsertRule(
-                name: rule.name,
-                content: value,
-                position: rule.position,
-                fromStart: rule.fromStart,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildTextEditField(
-            rule,
-            '插入位置：',
-            rule.position.toString(),
-            (value) => _updateRule(
-              index,
-              PositionInsertRule(
-                name: rule.name,
-                content: rule.content,
-                position: int.tryParse(value) ?? rule.position,
-                fromStart: rule.fromStart,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-        ],
-      );
-    } else if (rule is MarkerInsertRule) {
-      return Column(
-        children: [
-          _buildTextEditField(
-            rule,
-            '标记：',
-            rule.marker,
-            (value) => _updateRule(
-              index,
-              MarkerInsertRule(
-                name: rule.name,
-                content: rule.content,
-                marker: value,
-                before: rule.before,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildTextEditField(
-            rule,
-            '插入内容：',
-            rule.content,
-            (value) => _updateRule(
-              index,
-              MarkerInsertRule(
-                name: rule.name,
-                content: value,
-                marker: rule.marker,
-                before: rule.before,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-        ],
-      );
-    } else if (rule is MarkerDeleteRule) {
-      return _buildTextEditField(
-        rule,
-        '删除标记：',
-        rule.marker,
-        (value) => _updateRule(
-          index,
-          MarkerDeleteRule(
-            name: rule.name,
-            marker: value,
-          )..id = rule.id,
-          appState,
-        ),
-      );
-    } else if (rule is RangeDeleteRule) {
-      return Column(
-        children: [
-          _buildTextEditField(
-            rule,
-            '起始位置：',
-            rule.start.toString(),
-            (value) => _updateRule(
-              index,
-              RangeDeleteRule(
-                name: rule.name,
-                start: int.tryParse(value) ?? rule.start,
-                end: rule.end,
-                fromStart: rule.fromStart,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildTextEditField(
-            rule,
-            '结束位置：',
-            rule.end.toString(),
-            (value) => _updateRule(
-              index,
-              RangeDeleteRule(
-                name: rule.name,
-                start: rule.start,
-                end: int.tryParse(value) ?? rule.end,
-                fromStart: rule.fromStart,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-        ],
-      );
-    } else if (rule is CharacterTypeDeleteRule) {
-      return Text(
-        '字符类型：${rule.characterType.toString().split('.').last}',
-        style: const TextStyle(fontSize: 12),
-      );
-    } else if (rule is RangeReplaceRule) {
-      return Column(
-        children: [
-          _buildTextEditField(
-            rule,
-            '起始位置：',
-            rule.start.toString(),
-            (value) => _updateRule(
-              index,
-              RangeReplaceRule(
-                name: rule.name,
-                start: int.tryParse(value) ?? rule.start,
-                end: rule.end,
-                content: rule.content,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildTextEditField(
-            rule,
-            '结束位置：',
-            rule.end.toString(),
-            (value) => _updateRule(
-              index,
-              RangeReplaceRule(
-                name: rule.name,
-                start: rule.start,
-                end: int.tryParse(value) ?? rule.end,
-                content: rule.content,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildTextEditField(
-            rule,
-            '替换内容：',
-            rule.content,
-            (value) => _updateRule(
-              index,
-              RangeReplaceRule(
-                name: rule.name,
-                start: rule.start,
-                end: rule.end,
-                content: value,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-        ],
-      );
-    } else if (rule is MarkerReplaceRule) {
-      return Column(
-        children: [
-          _buildTextEditField(
-            rule,
-            '标记：',
-            rule.marker,
-            (value) => _updateRule(
-              index,
-              MarkerReplaceRule(
-                name: rule.name,
-                marker: value,
-                content: rule.content,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildTextEditField(
-            rule,
-            '替换内容：',
-            rule.content,
-            (value) => _updateRule(
-              index,
-              MarkerReplaceRule(
-                name: rule.name,
-                marker: rule.marker,
-                content: value,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-        ],
-      );
-    } else if (rule is CharacterTypeReplaceRule) {
-      return Column(
-        children: [
-          Text(
-            '字符类型：${rule.characterType.toString().split('.').last}',
-            style: const TextStyle(fontSize: 12),
-          ),
-          const SizedBox(height: 8),
-          _buildTextEditField(
-            rule,
-            '替换内容：',
-            rule.replacement,
-            (value) => _updateRule(
-              index,
-              CharacterTypeReplaceRule(
-                name: rule.name,
-                characterType: rule.characterType,
-                replacement: value,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-        ],
-      );
-    } else if (rule is DelimiterDeleteRule) {
-      return Column(
-        children: [
-          _buildTextEditField(
-            rule,
-            '起始分隔符：',
-            rule.startDelimiter,
-            (value) => _updateRule(
-              index,
-              DelimiterDeleteRule(
-                name: rule.name,
-                startDelimiter: value,
-                endDelimiter: rule.endDelimiter,
-                keepDelimiters: rule.keepDelimiters,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildTextEditField(
-            rule,
-            '结束分隔符：',
-            rule.endDelimiter,
-            (value) => _updateRule(
-              index,
-              DelimiterDeleteRule(
-                name: rule.name,
-                startDelimiter: rule.startDelimiter,
-                endDelimiter: value,
-                keepDelimiters: rule.keepDelimiters,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-        ],
-      );
-    } else if (rule is DelimiterReplaceRule) {
-      return Column(
-        children: [
-          _buildTextEditField(
-            rule,
-            '起始分隔符：',
-            rule.startDelimiter,
-            (value) => _updateRule(
-              index,
-              DelimiterReplaceRule(
-                name: rule.name,
-                startDelimiter: value,
-                endDelimiter: rule.endDelimiter,
-                replacement: rule.replacement,
-                keepDelimiters: rule.keepDelimiters,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildTextEditField(
-            rule,
-            '结束分隔符：',
-            rule.endDelimiter,
-            (value) => _updateRule(
-              index,
-              DelimiterReplaceRule(
-                name: rule.name,
-                startDelimiter: rule.startDelimiter,
-                endDelimiter: value,
-                replacement: rule.replacement,
-                keepDelimiters: rule.keepDelimiters,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildTextEditField(
-            rule,
-            '替换内容：',
-            rule.replacement,
-            (value) => _updateRule(
-              index,
-              DelimiterReplaceRule(
-                name: rule.name,
-                startDelimiter: rule.startDelimiter,
-                endDelimiter: rule.endDelimiter,
-                replacement: value,
-                keepDelimiters: rule.keepDelimiters,
-              )..id = rule.id,
-              appState,
-            ),
-          ),
-        ],
-      );
+  TextEditingController _getController(String key, String initialValue) {
+    if (!_controllers.containsKey(key)) {
+      _controllers[key] = TextEditingController(text: initialValue);
     }
-    return const Text('暂不支持直接编辑此类规则');
+    return _controllers[key]!;
   }
 
-  Widget _buildTextEditField(Rule rule, String label, String initialValue,
-      Function(String) onChanged) {
-    // 使用规则ID和字段名称组合作为控制器的唯一键
-    final controllerKey = '${rule.id}-$label';
-    final controller = _getController(controllerKey, initialValue);
-
-    return Row(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            style: const TextStyle(fontSize: 12),
-            decoration: const InputDecoration(
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              border: OutlineInputBorder(),
-            ),
-            onChanged: onChanged,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 保存规则配置
   Future<void> _saveRulesConfig(BuildContext context, AppState appState) async {
     try {
       String? outputFile = await FilePicker.platform.saveFile(
@@ -704,25 +801,19 @@ class _RulesPanelState extends State<RulesPanel> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('规则配置保存成功'),
-              backgroundColor: Colors.green,
-            ),
+                content: Text('规则配置保存成功'), backgroundColor: Colors.green),
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('保存失败: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('保存失败: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
-  // 加载规则配置
   Future<void> _loadRulesConfig(BuildContext context, AppState appState) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -736,10 +827,8 @@ class _RulesPanelState extends State<RulesPanel> {
         final content = await file.readAsString();
         final config = jsonDecode(content) as Map<String, dynamic>;
 
-        // 清空现有规则
         appState.clearRules();
 
-        // 加载规则
         if (config['rules'] != null) {
           final rules = (config['rules'] as List)
               .map((ruleJson) => Rule.fromJson(ruleJson))
@@ -749,7 +838,6 @@ class _RulesPanelState extends State<RulesPanel> {
           }
         }
 
-        // 加载处理扩展名设置
         if (config['processExtension'] != null) {
           appState.setProcessExtension(config['processExtension'] as bool);
         }
@@ -757,29 +845,16 @@ class _RulesPanelState extends State<RulesPanel> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('规则配置加载成功'),
-              backgroundColor: Colors.green,
-            ),
+                content: Text('规则配置加载成功'), backgroundColor: Colors.green),
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('加载失败: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('加载失败: $e'), backgroundColor: Colors.red),
         );
       }
     }
-  }
-
-  // 获取或创建控制器
-  TextEditingController _getController(String key, String initialValue) {
-    if (!_controllers.containsKey(key)) {
-      _controllers[key] = TextEditingController(text: initialValue);
-    }
-    return _controllers[key]!;
   }
 }

@@ -221,6 +221,16 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  void reorderRules(int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final Rule item = _rules.removeAt(oldIndex);
+    _rules.insert(newIndex, item);
+    executePreviews();
+    notifyListeners();
+  }
+
   // 规则描述
   String getRuleDescription(Rule rule) {
     if (rule is PatternRule) {
