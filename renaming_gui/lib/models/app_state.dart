@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:renaming_share/renaming_share.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
@@ -80,6 +81,7 @@ class AppState extends ChangeNotifier {
   final Renamer _renamer = Renamer();
   final List<FileItem> _files = [];
   final List<Rule> _rules = [];
+  final Set<String> _enabledRuleIds = {};
 
   bool _selectAll = false;
   bool _processExtension = false; // 添加这个属性
@@ -88,12 +90,16 @@ class AppState extends ChangeNotifier {
   List<FileItem> get files => List.unmodifiable(_files);
   List<Rule> get rules => List.unmodifiable(_rules);
 
-  bool get canExecute => _files.any((f) => f.isSelected) && _rules.isNotEmpty;
+  bool get canExecute =>
+      _files.any((f) => f.isSelected) && enabledRuleCount > 0;
   bool get selectAll => _selectAll;
   bool get processExtension => _processExtension; // 添加getter
 
   int get selectedCount => _files.where((f) => f.isSelected).length;
   int get totalCount => _files.length;
+  int get enabledRuleCount =>
+      _rules.where((rule) => isRuleEnabled(rule)).length;
+  List<String> get enabledRuleIds => List.unmodifiable(_enabledRuleIds);
 
   String get selectionInfo => '已选择 $selectedCount/$totalCount 个文件';
 
@@ -194,14 +200,17 @@ class AppState extends ChangeNotifier {
 
   // 规则操作
   void addRule(Rule rule) {
+    _ensureRuleId(rule);
     _rules.add(rule);
+    _enabledRuleIds.add(rule.id);
     executePreviews();
     notifyListeners();
   }
 
   void removeRule(int index) {
     if (index >= 0 && index < _rules.length) {
-      _rules.removeAt(index);
+      final removed = _rules.removeAt(index);
+      _enabledRuleIds.remove(removed.id);
       executePreviews();
       notifyListeners();
     }
@@ -209,12 +218,14 @@ class AppState extends ChangeNotifier {
 
   void clearRules() {
     _rules.clear();
+    _enabledRuleIds.clear();
     executePreviews();
     notifyListeners();
   }
 
   void updateRule(int index, Rule newRule) {
     if (index >= 0 && index < _rules.length) {
+      _ensureRuleId(newRule);
       _rules[index] = newRule;
       executePreviews();
       notifyListeners();
@@ -227,6 +238,28 @@ class AppState extends ChangeNotifier {
     }
     final Rule item = _rules.removeAt(oldIndex);
     _rules.insert(newIndex, item);
+    executePreviews();
+    notifyListeners();
+  }
+
+  bool isRuleEnabled(Rule rule) {
+    return _enabledRuleIds.contains(rule.id);
+  }
+
+  void setRuleEnabled(String ruleId, bool enabled) {
+    if (enabled) {
+      _enabledRuleIds.add(ruleId);
+    } else {
+      _enabledRuleIds.remove(ruleId);
+    }
+    executePreviews();
+    notifyListeners();
+  }
+
+  void setEnabledRuleIds(Set<String> ruleIds) {
+    _enabledRuleIds
+      ..clear()
+      ..addAll(ruleIds);
     executePreviews();
     notifyListeners();
   }
@@ -249,7 +282,10 @@ class AppState extends ChangeNotifier {
     // 清空并重新添加规则
     _renamer.clearRules();
     for (final rule in _rules) {
-      _renamer.addRule(rule);
+      _ensureRuleId(rule);
+      if (isRuleEnabled(rule)) {
+        _renamer.addRule(rule);
+      }
     }
 
     // 清空并重新添加文件
@@ -316,6 +352,12 @@ class AppState extends ChangeNotifier {
       files[index].dstPath =
           path.join(path.dirname(files[index].dstPath), newName);
       notifyListeners();
+    }
+  }
+
+  void _ensureRuleId(Rule rule) {
+    if (rule.id.isEmpty) {
+      rule.id = UniqueKey().toString();
     }
   }
 }

@@ -192,6 +192,7 @@ class _RulesPanelState extends State<RulesPanel> {
   Widget _buildRuleCard(
       BuildContext context, AppState appState, Rule rule, int index) {
     final isExpanded = _expandedRuleIds.contains(rule.id);
+    final isEnabled = appState.isRuleEnabled(rule);
 
     return Container(
       key: ValueKey(rule.id),
@@ -222,34 +223,46 @@ class _RulesPanelState extends State<RulesPanel> {
                 padding: const EdgeInsets.all(10),
                 child: Row(
                   children: [
+                    Checkbox(
+                      value: isEnabled,
+                      onChanged: (value) =>
+                          appState.setRuleEnabled(rule.id, value ?? false),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                     const Icon(Icons.drag_indicator,
                         color: Colors.grey, size: 16),
                     const SizedBox(width: 12),
-                    _buildRuleIcon(rule),
+                    Opacity(
+                      opacity: isEnabled ? 1 : 0.5,
+                      child: _buildRuleIcon(rule),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _getRuleTitle(rule),
-                            style: const TextStyle(
-                              color: AppTheme.textColor,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                      child: Opacity(
+                        opacity: isEnabled ? 1 : 0.5,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _getRuleTitle(rule),
+                              style: const TextStyle(
+                                color: AppTheme.textColor,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _getRuleSummary(rule),
-                            style: TextStyle(
-                              color: AppTheme.textMutedColor,
-                              fontSize: 11,
+                            const SizedBox(height: 2),
+                            Text(
+                              _getRuleSummary(rule),
+                              style: TextStyle(
+                                color: AppTheme.textMutedColor,
+                                fontSize: 11,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     IconButton(
@@ -793,6 +806,7 @@ class _RulesPanelState extends State<RulesPanel> {
         final config = {
           'rules': appState.rules.map((rule) => rule.toJson()).toList(),
           'processExtension': appState.processExtension,
+          'enabledRuleIds': appState.enabledRuleIds,
         };
 
         final file = File(outputFile);
@@ -840,6 +854,12 @@ class _RulesPanelState extends State<RulesPanel> {
 
         if (config['processExtension'] != null) {
           appState.setProcessExtension(config['processExtension'] as bool);
+        }
+
+        if (config['enabledRuleIds'] != null) {
+          final enabledIds =
+              (config['enabledRuleIds'] as List).cast<String>().toSet();
+          appState.setEnabledRuleIds(enabledIds);
         }
 
         if (context.mounted) {
