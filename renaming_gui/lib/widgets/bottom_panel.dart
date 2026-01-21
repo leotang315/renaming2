@@ -111,12 +111,6 @@ class BottomPanel extends StatelessWidget {
   Future<void> _executeRename(BuildContext context, AppState appState) async {
     try {
       await appState.executeRename();
-      if (context.mounted) {
-        MessageUtils.showMessage(
-          context,
-          message: '重命名完成',
-        );
-      }
     } catch (e) {
       if (context.mounted) {
         MessageUtils.showMessage(
